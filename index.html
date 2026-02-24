@@ -19,27 +19,6 @@
 
 <h2 id="userInfo">載入中...</h2>
 
-<!-- 請假申請區域 -->
-<div class="controls">
-  <input id="leaveName" placeholder="員工姓名" readonly>
-  <select id="leaveType">
-    <option>特休</option>
-    <option>事假</option>
-    <option>病假</option>
-    <option>公假</option>
-    <option>婚假</option>
-    <option>喪假</option>
-    <option>生理假</option>
-  </select>
-  <input id="leaveReason" placeholder="事由">
-  <input type="date" id="leaveStartDate" onchange="calculateLeaveHours()">
-  <input type="time" id="leaveStartTime" value="09:00" onchange="calculateLeaveHours()">
-  <input type="date" id="leaveEndDate" onchange="calculateLeaveHours()">
-  <input type="time" id="leaveEndTime" value="18:00" onchange="calculateLeaveHours()">
-  <input type="number" id="leaveHours" placeholder="請假時數" style="width:80px" readonly>
-  <button id="submitLeaveBtn" onclick="submitLeave()">送出請假</button>
-</div>
-
 <!-- 顯示請假紀錄表格 -->
 <table>
   <thead>
@@ -60,7 +39,7 @@
 </table>
 
 <script>
-  const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbzH2IfGBDAwOl4jHyzi8JHupLYErtDDsY0zATrN6rYklR_60ZkF2Wzhr-Fn1BFf2csD/exec";
+  const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbyW2VS21DmW0pzSaF7xlsWm9Lnij-lBV1aJYnfBUVHJzIn3zErCdiPDHvt9-Vfd-773/exec";
   let userId = "";
   let userName = "";
 
@@ -76,9 +55,6 @@
 
       document.getElementById("userInfo").textContent = `${userName} 您好`;
 
-      // 自動填入員工姓名
-      document.getElementById("leaveName").value = userName;
-
       loadLeaveRecords();  // 直接載入請假紀錄
 
     } catch (err) {
@@ -87,33 +63,19 @@
     }
   }
 
-  // 計算請假時數（簡單計算：結束時間 - 開始時間）
-  function calculateLeaveHours() {
-    const startDate = document.getElementById("leaveStartDate").value;
-    const startTime = document.getElementById("leaveStartTime").value;
-    const endDate = document.getElementById("leaveEndDate").value;
-    const endTime = document.getElementById("leaveEndTime").value;
-
-    if (!startDate || !startTime || !endDate || !endTime) return;
-
-    const start = new Date(`${startDate}T${startTime}:00`);
-    const end = new Date(`${endDate}T${endTime}:00`);
-
-    const diffInMs = end - start;
-    const hours = (diffInMs / (1000 * 60 * 60)).toFixed(2);  // 以小時為單位計算
-
-    document.getElementById("leaveHours").value = hours;  // 顯示請假時數
-  }
-
-  // 載入請假紀錄
+  // 載入請假紀錄（顯示最近兩個月）
   async function loadLeaveRecords() {
     const tbody = document.getElementById("leaveRecordTable");
     tbody.innerHTML = "<tr><td colspan='8'>載入中...</td></tr>";
 
+    // 計算兩個月前的日期
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - 2);  // 設定為兩個月前
+    const formattedStartDate = `${startDate.getFullYear()}/${('0' + (startDate.getMonth() + 1)).slice(-2)}/${('0' + startDate.getDate()).slice(-2)}`;
+
     try {
-      const res = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`);
+      const res = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}&start=${formattedStartDate}`);
       const data = await res.json();
-      console.log(data);  // 日誌：查看 API 返回的數據
 
       if (!data.length) {
         tbody.innerHTML = "<tr><td colspan='8'>無請假紀錄</td></tr>";
@@ -124,11 +86,13 @@
       data.forEach(r => {
         const row = document.createElement("tr");
 
+        // 格式化日期
         const formatDate = (dateStr) => {
           const date = new Date(dateStr);
-          return `${date.getFullYear()}-${('0' + (date.getMonth() + 1)).slice(-2)}-${('0' + date.getDate()).slice(-2)}`;
+          return `${date.getFullYear()}/${('0' + (date.getMonth() + 1)).slice(-2)}/${('0' + date.getDate()).slice(-2)}`;
         };
 
+        // 格式化時間
         const formatTime = (timeStr) => {
           const time = new Date(timeStr);
           return `${('0' + time.getHours()).slice(-2)}:${('0' + time.getMinutes()).slice(-2)}`;
@@ -152,57 +116,6 @@
     } catch (err) {
       console.error("讀取請假紀錄失敗:", err);
       tbody.innerHTML = "<tr><td colspan='8'>讀取失敗</td></tr>";
-    }
-  }
-
-  // 提交請假申請
-  async function submitLeave() {
-    const leaveType = document.getElementById("leaveType").value;
-    const leaveReason = document.getElementById("leaveReason").value;
-    const leaveStartDate = document.getElementById("leaveStartDate").value;
-    const leaveStartTime = document.getElementById("leaveStartTime").value;
-    const leaveEndDate = document.getElementById("leaveEndDate").value;
-    const leaveEndTime = document.getElementById("leaveEndTime").value;
-    const leaveHours = document.getElementById("leaveHours").value;
-
-    if (!leaveStartDate || !leaveStartTime || !leaveEndDate || !leaveEndTime || !leaveReason) {
-      return Swal.fire({ icon: "info", title: "請填完整資料", timer: 1500, showConfirmButton: false });
-    }
-
-    try {
-      const res = await fetch(API_ENDPOINT, {
-        method: "POST",
-        body: JSON.stringify({
-          action: "leave",
-          userId,
-          userName,
-          date: leaveStartDate,
-          startTime: leaveStartTime,
-          endTime: leaveEndTime,
-          leaveType,
-          leaveReason,
-          leaveHours
-        })
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        Swal.fire({ icon: "success", title: data.message || "請假申請完成", timer: 1500, showConfirmButton: false });
-      } else {
-        Swal.fire({ icon: "error", title: data.message || "請假申請失敗", timer: 1500, showConfirmButton: false });
-      }
-
-      // 重設表單
-      document.getElementById("leaveReason").value = "";
-      document.getElementById("leaveStartDate").value = "";
-      document.getElementById("leaveStartTime").value = "09:00";
-      document.getElementById("leaveEndDate").value = "";
-      document.getElementById("leaveEndTime").value = "18:00";
-      document.getElementById("leaveHours").value = "";
-
-    } catch (err) {
-      console.error("請假申請失敗:", err);
-      Swal.fire({ icon: "error", title: "請假申請失敗", timer: 1500, showConfirmButton: false });
     }
   }
 
