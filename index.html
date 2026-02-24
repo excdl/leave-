@@ -74,7 +74,7 @@
 </table>
 
 <script>
-  const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbzjVxox9cxg80tuh9XtCZGSrqT6lhIEmnJRZ6dMF-fSYfLqilO1Kmxaq4bYrBOgMzo/exec";
+  const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbyCzu8OOWeAynKMKkJ7f4M4WsW4Z1mBRYkJ64NQJpwzzhk5rTFeMFv68-S3rLZ7ACcj/exec";
   let userId = "";
   let userName = "";
 
@@ -154,7 +154,11 @@
       });
 
       const data = await res.json();
-      Swal.fire({ icon: "success", title: data.message || "請假申請完成", timer: 1500, showConfirmButton: false });
+      if (data.success) {
+        Swal.fire({ icon: "success", title: data.message || "請假申請完成", timer: 1500, showConfirmButton: false });
+      } else {
+        Swal.fire({ icon: "error", title: data.message || "請假申請失敗", timer: 1500, showConfirmButton: false });
+      }
 
       // 重設表單
       document.getElementById("leaveReason").value = "";
