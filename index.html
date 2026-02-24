@@ -69,7 +69,7 @@
 </table>
 
 <script>
-  const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbwA41AGPMizDbG-PaXl8-q5vmqleQ-INLqroKLrahDO0rR42JOjNqwYCxzLof_3CDEp/exec";
+  const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbzXKqEvcP0whVUr-UIrZLnGcIVg6MJ7pG2RCrRx1fBVrJYlmjfY2iFcYMUS44VVPIc/exec";
   let userId = "";
   let userName = "";
 
@@ -168,67 +168,68 @@
   }
 
   // ========================
-// 載入請假紀錄
-// ========================
-async function loadLeaveRecords(start = "", end = "") {
-  const tbody = document.getElementById("leaveRecordTable");
-  tbody.innerHTML = "<tr><td colspan='8'>載入中...</td></tr>";
+  // 載入請假紀錄
+  // ========================
+  async function loadLeaveRecords(start = "", end = "") {
+    const tbody = document.getElementById("leaveRecordTable");
+    tbody.innerHTML = "<tr><td colspan='8'>載入中...</td></tr>";
 
-  try {
-    const sDate = start || new Date().toISOString().slice(0, 10); // 格式: YYYY-MM-DD
-    const eDate = end || sDate;
+    try {
+      const sDate = start || new Date().toISOString().slice(0, 10); // 格式: YYYY-MM-DD
+      const eDate = end || sDate;
 
-    console.log(`請求的日期範圍: 開始日期 = ${sDate}, 結束日期 = ${eDate}`);
+      console.log(`請求的日期範圍: 開始日期 = ${sDate}, 結束日期 = ${eDate}`);
 
-    const res = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}&start=${sDate}&end=${eDate}`);
-    const data = await res.json();
+      const res = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}&start=${sDate}&end=${eDate}`);
+      const data = await res.json();
 
-    if (!data || data.length === 0) {
-      tbody.innerHTML = "<tr><td colspan='8'>無請假紀錄</td></tr>";
-      return;
+      if (!Array.isArray(data) || data.length === 0) {
+        tbody.innerHTML = "<tr><td colspan='8'>無請假紀錄</td></tr>";
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      data.forEach(r => {
+        const row = document.createElement("tr");
+
+        const formatDate = (dateStr) => {
+          const date = new Date(dateStr);
+          if (isNaN(date.getTime()) || dateStr === '1899-12-30T00:00:00.000Z') {
+            return '--';
+          }
+          return `${date.getFullYear()}-${('0' + (date.getMonth() + 1)).slice(-2)}-${('0' + date.getDate()).slice(-2)}`;
+        };
+
+        const formatTime = (timeStr) => {
+          const time = new Date(timeStr);
+          if (isNaN(time.getTime())) {
+            return '--';
+          }
+          return `${('0' + time.getHours()).slice(-2)}:${('0' + time.getMinutes()).slice(-2)}`;
+        };
+
+        row.innerHTML = `
+          <td>${r.userName}</td>
+          <td>${r.leaveType}</td>
+          <td>${r.leaveReason}</td>
+          <td>${formatDate(r.startDate)}</td>
+          <td>${formatTime(r.startTime)}</td>
+          <td>${formatDate(r.endDate)}</td>
+          <td>${formatTime(r.endTime)}</td>
+          <td>${r.leaveHours}</td>
+        `;
+        fragment.appendChild(row);
+      });
+
+      tbody.innerHTML = "";
+      tbody.appendChild(fragment);
+
+    } catch (err) {
+      console.error(err);
+      tbody.innerHTML = "<tr><td colspan='8'>讀取失敗</td></tr>";
     }
-
-    const fragment = document.createDocumentFragment();
-    data.forEach(r => {
-      const row = document.createElement("tr");
-
-      const formatDate = (dateStr) => {
-        const date = new Date(dateStr);
-        if (isNaN(date.getTime()) || dateStr === '1899-12-30T00:00:00.000Z') {
-          return '--';
-        }
-        return `${date.getFullYear()}-${('0' + (date.getMonth() + 1)).slice(-2)}-${('0' + date.getDate()).slice(-2)}`;
-      };
-
-      const formatTime = (timeStr) => {
-        const time = new Date(timeStr);
-        if (isNaN(time.getTime())) {
-          return '--';
-        }
-        return `${('0' + time.getHours()).slice(-2)}:${('0' + time.getMinutes()).slice(-2)}`;
-      };
-
-      row.innerHTML = `
-        <td>${r.userName}</td>
-        <td>${r.leaveType}</td>
-        <td>${r.leaveReason}</td>
-        <td>${formatDate(r.startDate)}</td>
-        <td>${formatTime(r.startTime)}</td>
-        <td>${formatDate(r.endDate)}</td>
-        <td>${formatTime(r.endTime)}</td>
-        <td>${r.leaveHours}</td>
-      `;
-      fragment.appendChild(row);
-    });
-
-    tbody.innerHTML = "";
-    tbody.appendChild(fragment);
-
-  } catch (err) {
-    console.error(err);
-    tbody.innerHTML = "<tr><td colspan='8'>讀取失敗</td></tr>";
   }
-}
+
   // 初始化 LIFF
   window.onload = initLIFF;
 </script>
