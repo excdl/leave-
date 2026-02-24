@@ -60,24 +60,26 @@
 </table>
 
 <script>
-  const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbyW2VS21DmW0pzSaF7xlsWm9Lnij-lBV1aJYnfBUVHJzIn3zErCdiPDHvt9-Vfd-773/exec";
+  const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbzbM-Kjnbb16hRRscEQGLhe1foEaDlFV_XgYXw4Z_ydjEf1RqPK-Q4LwlM_ozc4ZVLM/exec";
   let userId = "";
   let userName = "";
 
+  // 初始化 LIFF，獲取 LINE ID 和用戶資料
   async function initLIFF() {
     try {
       await liff.init({ liffId: "2008786085-L1CtKqqv" });
-      if (!liff.isLoggedIn()) await liff.login();
+      if (!liff.isLoggedIn()) await liff.login();  // 如果未登錄，則引導登錄
 
       const profile = await liff.getProfile();
-      userId = profile.userId;
-      userName = profile.displayName;
+      userId = profile.userId;  // 這是用戶的 LINE ID
+      userName = profile.displayName;  // 用戶的顯示名稱
 
       document.getElementById("userInfo").textContent = `${userName} 您好`;
 
+      // 自動填入員工姓名
       document.getElementById("leaveName").value = userName;
 
-      loadLeaveRecords();
+      loadLeaveRecords();  // 直接載入請假紀錄
 
     } catch (err) {
       console.error("LIFF 初始化錯誤", err);
@@ -85,6 +87,25 @@
     }
   }
 
+  // 計算請假時數（簡單計算：結束時間 - 開始時間）
+  function calculateLeaveHours() {
+    const startDate = document.getElementById("leaveStartDate").value;
+    const startTime = document.getElementById("leaveStartTime").value;
+    const endDate = document.getElementById("leaveEndDate").value;
+    const endTime = document.getElementById("leaveEndTime").value;
+
+    if (!startDate || !startTime || !endDate || !endTime) return;
+
+    const start = new Date(`${startDate}T${startTime}:00`);
+    const end = new Date(`${endDate}T${endTime}:00`);
+
+    const diffInMs = end - start;
+    const hours = (diffInMs / (1000 * 60 * 60)).toFixed(2);  // 以小時為單位計算
+
+    document.getElementById("leaveHours").value = hours;  // 顯示請假時數
+  }
+
+  // 載入請假紀錄
   async function loadLeaveRecords() {
     const tbody = document.getElementById("leaveRecordTable");
     tbody.innerHTML = "<tr><td colspan='8'>載入中...</td></tr>";
@@ -92,6 +113,7 @@
     try {
       const res = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`);
       const data = await res.json();
+      console.log(data);  // 日誌：查看 API 返回的數據
 
       if (!data.length) {
         tbody.innerHTML = "<tr><td colspan='8'>無請假紀錄</td></tr>";
@@ -133,8 +155,61 @@
     }
   }
 
+  // 提交請假申請
+  async function submitLeave() {
+    const leaveType = document.getElementById("leaveType").value;
+    const leaveReason = document.getElementById("leaveReason").value;
+    const leaveStartDate = document.getElementById("leaveStartDate").value;
+    const leaveStartTime = document.getElementById("leaveStartTime").value;
+    const leaveEndDate = document.getElementById("leaveEndDate").value;
+    const leaveEndTime = document.getElementById("leaveEndTime").value;
+    const leaveHours = document.getElementById("leaveHours").value;
+
+    if (!leaveStartDate || !leaveStartTime || !leaveEndDate || !leaveEndTime || !leaveReason) {
+      return Swal.fire({ icon: "info", title: "請填完整資料", timer: 1500, showConfirmButton: false });
+    }
+
+    try {
+      const res = await fetch(API_ENDPOINT, {
+        method: "POST",
+        body: JSON.stringify({
+          action: "leave",
+          userId,
+          userName,
+          date: leaveStartDate,
+          startTime: leaveStartTime,
+          endTime: leaveEndTime,
+          leaveType,
+          leaveReason,
+          leaveHours
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        Swal.fire({ icon: "success", title: data.message || "請假申請完成", timer: 1500, showConfirmButton: false });
+      } else {
+        Swal.fire({ icon: "error", title: data.message || "請假申請失敗", timer: 1500, showConfirmButton: false });
+      }
+
+      // 重設表單
+      document.getElementById("leaveReason").value = "";
+      document.getElementById("leaveStartDate").value = "";
+      document.getElementById("leaveStartTime").value = "09:00";
+      document.getElementById("leaveEndDate").value = "";
+      document.getElementById("leaveEndTime").value = "18:00";
+      document.getElementById("leaveHours").value = "";
+
+    } catch (err) {
+      console.error("請假申請失敗:", err);
+      Swal.fire({ icon: "error", title: "請假申請失敗", timer: 1500, showConfirmButton: false });
+    }
+  }
+
+  // 初始化 LIFF
   window.onload = initLIFF;
 </script>
 
 </body>
 </html>
+
