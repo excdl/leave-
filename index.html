@@ -2,19 +2,33 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <title>請假申請</title>
+  <title>請假紀錄</title>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
     body{font-family:Arial,sans-serif;padding:20px;}
-    .controls{padding:20px;border:1px solid #ccc;}
-    input, select, button {padding:8px;margin:10px 0;width:100%;}
+    table{border-collapse:collapse;width:100%;}
+    th,td{border:1px solid #ccc;padding:8px;text-align:center;}
+    th{background:#f4f4f4;}
+    input,button,select{padding:5px;margin:5px;}
+    .waiting{color:orange;font-weight:bold;}
+    .controls { padding: 20px; border: 1px solid #ccc; margin-top: 20px; }
   </style>
 </head>
 <body>
 
 <h2 id="userInfo">載入中...</h2>
 
+<!-- 日期篩選區域 -->
+<div>
+  日期篩選：
+  <input type="date" id="startDate"> 至 
+  <input type="date" id="endDate">
+  <button id="btnSearch">查詢</button>
+  <button id="btnClear">清除</button>
+</div>
+
+<!-- 請假申請區域（新加入） -->
 <div class="controls">
   <input id="leaveName" placeholder="員工姓名" readonly>
   <select id="leaveType">
@@ -35,6 +49,29 @@
   <button id="submitLeaveBtn" onclick="submitLeave()">送出請假</button>
   <button onclick="window.open('https://excdl.github.io/leave-and-sign/','_blank')">查看請假 | 簽核</button>
 </div>
+
+<!-- 載入請假紀錄表格 -->
+<table>
+  <thead>
+    <tr>
+      <th>請假日期</th>
+      <th>假別</th>
+      <th>事由</th>
+      <th>起始時間</th>
+      <th>結束時間</th>
+      <th>請假時數</th>
+      <th>簽核1</th>
+      <th>簽核人1</th>
+      <th>簽核日期1</th>
+      <th>簽核2</th>
+      <th>簽核人2</th>
+      <th>簽核日期2</th>
+    </tr>
+  </thead>
+  <tbody id="leaveRecordTable">
+    <tr><td colspan='12'>載入中...</td></tr>
+  </tbody>
+</table>
 
 <script>
   const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbzjVxox9cxg80tuh9XtCZGSrqT6lhIEmnJRZ6dMF-fSYfLqilO1Kmxaq4bYrBOgMzo/exec";
@@ -133,7 +170,58 @@
     }
   }
 
-  // 啟動 LIFF
+  // ========================
+  // 載入請假紀錄
+  // ========================
+  async function loadLeaveRecords(start="", end="") {
+    const tbody = document.getElementById("leaveRecordTable");
+    tbody.innerHTML = "<tr><td colspan='12'>載入中...</td></tr>";
+  
+    try {
+      const sDate = start || new Date().toISOString().slice(0, 10);
+      const eDate = end || sDate;
+  
+      // 先顯示簡單的日期範圍或今天的紀錄，延遲載入詳細紀錄
+      const res = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}&start=${sDate}&end=${eDate}`);
+      const data = await res.json();
+  
+      if (!data.length) {
+        tbody.innerHTML = "<tr><td colspan='12'>無請假紀錄</td></tr>";
+        return;
+      }
+  
+      // 使用 documentFragment 渲染
+      const fragment = document.createDocumentFragment();
+      data.forEach(r => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${r.startDate}</td>
+          <td>${r.leaveType}</td>
+          <td>${r.reason}</td>
+          <td>${r.startTime}</td>
+          <td>${r.endTime}</td>
+          <td>${r.leaveHours}</td>
+          <td>${r.sign1Status}</td>
+          <td>${r.sign1Name}</td>
+          <td>${r.sign1Date}</td>
+          <td>${r.sign2Status}</td>
+          <td>${r.sign2Name}</td>
+          <td>${r.sign2Date}</td>
+        `;
+        fragment.appendChild(row);
+      });
+  
+      // 將所有行一次性插入表格
+      tbody.innerHTML = "";
+      tbody.appendChild(fragment);
+  
+    } catch (err) {
+      console.error(err);
+      tbody.innerHTML = "<tr><td colspan='12'>讀取失敗</td></tr>";
+    }
+  }
+
+  // 初始化 LIFF
   window.onload = initLIFF;
 </script>
 
