@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
@@ -69,7 +69,7 @@
 </table>
 
 <script>
-  const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbywYMjs9g8jyhZXvAEV_Y-k8PTJeyfGxtpU5_13JPY_IGe0m4GHLQ24SCRimjEa112Z/exec";
+  const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbz7sQ2iVfSNx_LlDxErPk8tLDL2MH87fB7oOLVduqeEFuMEKGXqeTxkwPllplz4CLy8/exec";
   let userId = "";
   let userName = "";
 
@@ -179,7 +179,6 @@
       const sDate = start || new Date().toISOString().slice(0, 10);
       const eDate = end || sDate;
 
-      console.log("正在請求資料，日期範圍:", sDate, "至", eDate);  // Debug 日誌
       const res = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}&start=${sDate}&end=${eDate}`);
       const data = await res.json();
 
