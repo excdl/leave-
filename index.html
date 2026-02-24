@@ -74,7 +74,7 @@
 </table>
 
 <script>
-  const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbwCt2qwlfK4K4glPnJOk0RAQpJKFJCzeemahB8vrPdtOVLl767oIIVoDDKB3vAOd2iC/exec";
+  const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbwKAxPnNCo2iist5CRdoAaPmfeX8SYiZaZmvzdrqoiis17mezt2IlUJ6H0llu0qjAp6/exec";
   let userId = "";
   let userName = "";
 
@@ -163,6 +163,66 @@
     } catch (err) {
       console.error("請假申請錯誤: ", err);
       Swal.fire({ icon: "error", title: "請假申請失敗", text: err.message, timer: 1500, showConfirmButton: false });
+    }
+  }
+
+  // 當用戶點擊查詢按鈕時，載入指定日期範圍的請假記錄
+  document.getElementById("btnSearch").addEventListener("click", function() {
+    const startDate = document.getElementById("startDate").value;
+    const endDate = document.getElementById("endDate").value;
+
+    if (startDate && endDate) {
+      loadLeaveRecords(startDate, endDate);  // 查詢請假紀錄
+    } else {
+      Swal.fire({ icon: "info", title: "請選擇日期範圍", timer: 1500, showConfirmButton: false });
+    }
+  });
+
+  // ========================
+  // 載入請假紀錄
+  // ========================
+  async function loadLeaveRecords(start="", end="") {
+    const tbody = document.getElementById("leaveRecordTable");
+    tbody.innerHTML = "<tr><td colspan='12'>載入中...</td></tr>";
+
+    try {
+      const sDate = start || new Date().toISOString().slice(0, 10);
+      const eDate = end || sDate;
+
+      const res = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}&start=${sDate}&end=${eDate}`);
+      const data = await res.json();
+
+      if (!data.length) {
+        tbody.innerHTML = "<tr><td colspan='12'>無請假紀錄</td></tr>";
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      data.forEach(r => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${r.startDate}</td>
+          <td>${r.leaveType}</td>
+          <td>${r.reason}</td>
+          <td>${r.startTime}</td>
+          <td>${r.endTime}</td>
+          <td>${r.leaveHours}</td>
+          <td>${r.sign1Status}</td>
+          <td>${r.sign1Name}</td>
+          <td>${r.sign1Date}</td>
+          <td>${r.sign2Status}</td>
+          <td>${r.sign2Name}</td>
+          <td>${r.sign2Date}</td>
+        `;
+        fragment.appendChild(row);
+      });
+
+      tbody.innerHTML = "";
+      tbody.appendChild(fragment);
+
+    } catch (err) {
+      console.error("載入請假紀錄錯誤: ", err);
+      tbody.innerHTML = "<tr><td colspan='12'>讀取失敗</td></tr>";
     }
   }
 
