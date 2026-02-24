@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>請假紀錄</title>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    body{font-family:Arial,sans-serif;padding:20px;}
+    table{border-collapse:collapse;width:100%;}
+    th,td{border:1px solid #ccc;padding:8px;text-align:center;}
+    th{background:#f4f4f4;}
+    input,button,select{padding:5px;margin:5px;}
+    .waiting{color:orange;font-weight:bold;}
+  </style>
+</head>
+<body>
+
+<h2 id="userInfo">載入中...</h2>
+
+<div>
+  日期篩選：
+  <input type="date" id="startDate"> 至 
+  <input type="date" id="endDate">
+  <button id="btnSearch">查詢</button>
+  <button id="btnClear">清除</button>
+</div>
+
+<div style="margin-top:10px; border:1px solid #ccc; padding:10px;">
+  <h4>請假申請：</h4>
+  日期：<input type="date" id="leaveDate">  
+  起始時間：<input type="time" id="startTime">  
+  終止時間：<input type="time" id="endTime">  
+  假別：<input type="text" id="leaveType" placeholder="請輸入假別">
+  事由：<input type="text" id="leaveReason" placeholder="請輸入請假事由">
+  
+  LINE ID：<input type="text" id="lineId" placeholder="請輸入LINE ID">
+
+  <button id="btnLeave">送出申請</button>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>日期</th>
+      <th>假別</th>
+      <th>事由</th>
+      <th>起始時間</th>
+      <th>終止時間</th>
+      <th>請假時數</th>
+      <th>醫生診斷證明</th>
+      <th>簽核1</th>
+      <th>簽核人1</th>
+      <th>簽核日期1</th>
+      <th>簽核2</th>
+      <th>簽核人2</th>
+      <th>簽核日期2</th>
+      <th>e-mail</th>
+    </tr>
+  </thead>
+  <tbody id="recordTable">
+    <tr><td colspan='13'>載入中...</td></tr>
+  </tbody>
+</table>
+
+<script>
+const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbzjVxox9cxg80tuh9XtCZGSrqT6lhIEmnJRZ6dMF-fSYfLqilO1Kmxaq4bYrBOgMzo/exec";
+let userId = "";
+let userName = "";
+
+// ========================
+// 前端：簡化時間日期格式化
+// ========================
+function fixDate(t){
+  if(!t) return "";
+  return t;
+}
+
+function fixTime(t){
+  if(!t) return "";
+  return t;
+}
+
+async function initLIFF(){
+  try{
+    await liff.init({ liffId: "2008786085-L1CtKqqv" });
+    if(!liff.isLoggedIn()) await liff.login();
+    const profile = await liff.getProfile();
+    userId = profile.userId;
+    userName = profile.displayName;
+    document.getElementById("userInfo").textContent = `${userName} 您好`;
+
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
+    const lastDay  = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().slice(0,10);
+    document.getElementById("startDate").value = firstDay;
+    document.getElementById("endDate").value = lastDay;
+    loadRecords(firstDay,lastDay);
+
+  }catch(err){
+    console.error(err);
+    document.getElementById("userInfo").textContent = "無法取得使用者資訊，請在 LINE 打開此頁面。";
+  }
+}
+
+async function loadRecords(start="", end=""){
+  const tbody = document.getElementById("recordTable");
+  tbody.innerHTML = "<tr><td colspan='13'>載入中...</td></tr>";
+
+  try {
+    const sDate = start || new Date().toISOString().slice(0,10);
+    const eDate = end || sDate;
+
+    const res = await fetch(`${API_ENDPOINT}?action=getRecords&userId=${userId}&start=${sDate}&end=${eDate}`);
+    const data = await res.json();
+
+    if(!data.length) {
+      tbody.innerHTML = "<tr><td colspan='13'>無紀錄</td></tr>";
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    data.forEach(r => {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${fixDate(r.date)}</td>
+        <td>${r.leaveType || ""}</td>
+        <td>${r.reason || ""}</td>
+        <td>${fixTime(r.startTime)}</td>
+        <td>${fixTime(r.endTime)}</td>
+        <td>${r.leaveHours || ""}</td>
+        <td>${r.medicalProof || ""}</td>
+        <td>${r.approver1 || ""}</td>
+        <td>${r.approverName1 || ""}</td>
+        <td>${fixDate(r.approverDate1)}</td>
+        <td>${r.approver2 || ""}</td>
+        <td>${r.approverName2 || ""}</td>
+        <td>${fixDate(r.approverDate2)}</td>
+        <td>${r.email || ""}</td>
+      `;
+      fragment.appendChild(row);
+    });
+
+    tbody.innerHTML = "";
+    tbody.appendChild(fragment);
+
+  } catch(err) {
+    console.error(err);
+    tbody.innerHTML = "<tr><td colspan='13'>讀取失敗</td></tr>";
+  }
+}
+
+// 請假申請
+document.getElementById("btnLeave").onclick = async ()=>{
+
+  let date = document.getElementById("leaveDate").value.replace(/-/g,"/");
+  let startTime = document.getElementById("startTime").value;
+  let endTime = document.getElementById("endTime").value;
+  let leaveType = document.getElementById("leaveType").value.trim();
+  let leaveReason = document.getElementById("leaveReason").value.trim();
+  let lineId = document.getElementById("lineId").value.trim();
+
+  if(!date || !startTime || !endTime || !leaveType || !leaveReason || !lineId)
+    return Swal.fire({icon:"info",title:"請填完整資料",timer:1500,showConfirmButton:false});
+
+  try{
+    const res = await fetch(API_ENDPOINT,{
+      method:"POST",
+      body: JSON.stringify({ 
+        action:"leave", 
+        userId, 
+        userName, 
+        date, 
+        startTime, 
+        endTime, 
+        leaveType, 
+        leaveReason,
+        lineId
+      })
+    });
+
+    const data = await res.json();
+    Swal.fire({icon:"success",title:data.message||"請假申請完成",timer:1500,showConfirmButton:false});
+    loadRecords();
+
+  }catch{
+    Swal.fire({icon:"error",title:"請假申請失敗",timer:1500,showConfirmButton:false});
+  }
+};
+
+document.getElementById("btnSearch").onclick = ()=>{
+  const start = document.getElementById("startDate").value;
+  const end = document
