@@ -96,7 +96,7 @@
       loadLeaveRecords(firstDay, lastDay);
 
     } catch (err) {
-      console.error(err);
+      console.error("LIFF 初始化錯誤", err);
       document.getElementById("userInfo").textContent = "無法取得使用者資訊，請在 LINE 打開此頁面。";
     }
   }
@@ -165,7 +165,7 @@
       document.getElementById("leaveHours").value = "";
 
     } catch (err) {
-      console.error(err);
+      console.error("請假申請失敗:", err);
       Swal.fire({ icon: "error", title: "請假申請失敗", timer: 1500, showConfirmButton: false });
     }
   }
@@ -179,6 +179,7 @@
       const sDate = start || new Date().toISOString().slice(0, 10);
       const eDate = end || sDate;
 
+      console.log("正在請求資料，日期範圍:", sDate, "至", eDate);  // Debug 日誌
       const res = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}&start=${sDate}&end=${eDate}`);
       const data = await res.json();
 
@@ -187,12 +188,10 @@
         return;
       }
 
-      // 使用 documentFragment 渲染
       const fragment = document.createDocumentFragment();
       data.forEach(r => {
         const row = document.createElement("tr");
 
-        // 格式化日期和時間
         const formatDate = (dateStr) => {
           const date = new Date(dateStr);
           return `${date.getFullYear()}-${('0' + (date.getMonth() + 1)).slice(-2)}-${('0' + date.getDate()).slice(-2)}`;
@@ -215,13 +214,11 @@
         `;
         fragment.appendChild(row);
       });
-
-      // 將所有行一次性插入表格
       tbody.innerHTML = "";
       tbody.appendChild(fragment);
 
     } catch (err) {
-      console.error(err);
+      console.error("讀取請假紀錄失敗:", err);
       tbody.innerHTML = "<tr><td colspan='8'>讀取失敗</td></tr>";
     }
   }
@@ -232,4 +229,6 @@
 
 </body>
 </html>
+
+
 
