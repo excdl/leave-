@@ -69,7 +69,7 @@
 </table>
 
 <script>
-  const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbyEFcMB81vSddxpnAYYnipxl-_gfj4QZo8ONbQ_8ZoDE-iSEZG-qENFMygrmUofQRRT/exec";
+  const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbywFLsOB-v9cRPzwTO333QvB0ayGepcQwafd5O0FHd-tD6WFNPkRYZ8GG7ZQQ0A5H4I/exec";
   let userId = "";
   let userName = "";
 
@@ -181,6 +181,7 @@
 
       const res = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}&start=${sDate}&end=${eDate}`);
       const data = await res.json();
+      console.log(data);  // 日誌：查看 API 返回的數據
 
       if (!data.length) {
         tbody.innerHTML = "<tr><td colspan='8'>無請假紀錄</td></tr>";
