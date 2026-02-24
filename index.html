@@ -74,7 +74,7 @@
 </table>
 
 <script>
-  const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbwKAxPnNCo2iist5CRdoAaPmfeX8SYiZaZmvzdrqoiis17mezt2IlUJ6H0llu0qjAp6/exec";
+  const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbya6nUBgaXJJeuacw0TIlUOSNL6g3gfvq-zsVh9fUVHNNk7s4V79l06BKHl97SANd_D/exec";
   let userId = "";
   let userName = "";
 
@@ -118,15 +118,19 @@
   async function submitLeave() {
     const leaveType = document.getElementById("leaveType").value;
     const leaveReason = document.getElementById("leaveReason").value;
-    const leaveStartDate = document.getElementById("leaveStartDate").value;
-    const leaveStartTime = document.getElementById("leaveStartTime").value;
-    const leaveEndDate = document.getElementById("leaveEndDate").value;
-    const leaveEndTime = document.getElementById("leaveEndTime").value;
+    let leaveStartDate = document.getElementById("leaveStartDate").value;
+    let leaveStartTime = document.getElementById("leaveStartTime").value;
+    let leaveEndDate = document.getElementById("leaveEndDate").value;
+    let leaveEndTime = document.getElementById("leaveEndTime").value;
     const leaveHours = document.getElementById("leaveHours").value;
 
     if (!leaveStartDate || !leaveStartTime || !leaveEndDate || !leaveEndTime || !leaveReason) {
       return Swal.fire({ icon: "info", title: "請填完整資料", timer: 1500, showConfirmButton: false });
     }
+
+    // 強制轉換日期格式為 YYYY/MM/DD
+    leaveStartDate = formatDate(leaveStartDate);
+    leaveEndDate = formatDate(leaveEndDate);
 
     try {
       const res = await fetch(API_ENDPOINT, {
@@ -145,7 +149,6 @@
       });
 
       const data = await res.json();
-      console.log("API 返回數據:", data);
 
       if (data.success) {
         Swal.fire({ icon: "success", title: data.message || "請假申請完成", timer: 1500, showConfirmButton: false });
@@ -178,9 +181,7 @@
     }
   });
 
-  // ========================
   // 載入請假紀錄
-  // ========================
   async function loadLeaveRecords(start="", end="") {
     const tbody = document.getElementById("leaveRecordTable");
     tbody.innerHTML = "<tr><td colspan='12'>載入中...</td></tr>";
@@ -224,6 +225,15 @@
       console.error("載入請假紀錄錯誤: ", err);
       tbody.innerHTML = "<tr><td colspan='12'>讀取失敗</td></tr>";
     }
+  }
+
+  // 強制格式化日期為 YYYY/MM/DD
+  function formatDate(dateString) {
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, "0");
+    const day = date.getDate().toString().padStart(2, "0");
+    return `${year}/${month}/${day}`;
   }
 
   // 初始化 LIFF
