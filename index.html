@@ -39,7 +39,7 @@
 </table>
 
 <script>
-  const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbyW2VS21DmW0pzSaF7xlsWm9Lnij-lBV1aJYnfBUVHJzIn3zErCdiPDHvt9-Vfd-773/exec";
+  const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbzFt_8_fwT4zbtUozzDHqXaCCH3i6hCkUKhHVKogOoTW4ciCp1yDKer6JdEsmmrGlIu/exec";
   let userId = "";
   let userName = "";
 
@@ -86,13 +86,11 @@
       data.forEach(r => {
         const row = document.createElement("tr");
 
-        // 格式化日期
         const formatDate = (dateStr) => {
           const date = new Date(dateStr);
           return `${date.getFullYear()}/${('0' + (date.getMonth() + 1)).slice(-2)}/${('0' + date.getDate()).slice(-2)}`;
         };
 
-        // 格式化時間
         const formatTime = (timeStr) => {
           const time = new Date(timeStr);
           return `${('0' + time.getHours()).slice(-2)}:${('0' + time.getMinutes()).slice(-2)}`;
