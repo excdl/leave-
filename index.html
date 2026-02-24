@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
@@ -12,48 +12,50 @@
     th{background:#f4f4f4;}
     input,button,select{padding:5px;margin:5px;}
     .waiting{color:orange;font-weight:bold;}
-    .controls { padding: 20px; border: 1px solid #ccc; margin-top: 20px; }
   </style>
 </head>
 <body>
 
 <h2 id="userInfo">載入中...</h2>
 
-<!-- 日期篩選區域 -->
 <div>
   日期篩選：
-  <input type="date" id="startDate"> 至
+  <input type="date" id="startDate"> 至 
   <input type="date" id="endDate">
   <button id="btnSearch">查詢</button>
   <button id="btnClear">清除</button>
 </div>
 
-<!-- 請假申請區域 -->
-<div class="controls">
-  <input id="leaveName" placeholder="員工姓名" readonly>
+<div style="margin-top:10px; border:1px solid #ccc; padding:10px;">
+  <h4>請假申請：</h4>
+  假別：
   <select id="leaveType">
-    <option>特休</option>
-    <option>事假</option>
-    <option>病假</option>
-    <option>公假</option>
-    <option>婚假</option>
-    <option>喪假</option>
-    <option>生理假</option>
+    <option value="病假">病假</option>
+    <option value="事假">事假</option>
+    <option value="年假">年假</option>
   </select>
-  <input id="leaveReason" placeholder="事由">
-  <input type="date" id="leaveStartDate" onchange="calculateLeaveHours()">
-  <input type="time" id="leaveStartTime" value="09:00" onchange="calculateLeaveHours()">
-  <input type="date" id="leaveEndDate" onchange="calculateLeaveHours()">
-  <input type="time" id="leaveEndTime" value="18:00" onchange="calculateLeaveHours()">
-  <input type="number" id="leaveHours" placeholder="請假時數" style="width:80px" readonly>
-  <button id="submitLeaveBtn" onclick="submitLeave()">送出請假</button>
+  事由：
+  <input type="text" id="leaveReason" placeholder="請輸入請假事由">
+
+  起始日期：
+  <input type="date" id="startDateInput">
+  起始時間：
+  <input type="time" id="startTimeInput">
+  
+  終止日期：
+  <input type="date" id="endDateInput">
+  終止時間：
+  <input type="time" id="endTimeInput">
+  
+  請假時數：
+  <input type="number" id="leaveHours" placeholder="請假時數">
+
+  <button id="btnLeaveSubmit">送出請假申請</button>
 </div>
 
-<!-- 顯示請假紀錄表格 -->
 <table>
   <thead>
     <tr>
-      <th>員工姓名</th>
       <th>假別</th>
       <th>事由</th>
       <th>起始日期</th>
@@ -61,178 +63,150 @@
       <th>終止日期</th>
       <th>終止時間</th>
       <th>請假時數</th>
+      <th>簽核狀態</th>
     </tr>
   </thead>
   <tbody id="leaveRecordTable">
-    <tr><td colspan="8">載入中...</td></tr>
+    <tr><td colspan='8'>載入中...</td></tr>
   </tbody>
 </table>
 
 <script>
-  const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbwn6BHhgPxzpKIkpdTtUTjYk760Nk65oMcJiYc0lNYUbJvkd7AkTbFdlyT-Zjq_a4Jr/exec";
-  let userId = "";
-  let userName = "";
+const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbym4GZK5EZdfd4hTnopQpean1uQT5TIMoFnZYalFJhz6V4vzr4wAO9PRdDameGwidy9/exec";
+let userId = "";
+let userName = "";
 
-  // 初始化 LIFF，獲取 LINE ID 和用戶資料
-  async function initLIFF() {
-    try {
-      await liff.init({ liffId: "2008786085-L1CtKqqv" });
-      if (!liff.isLoggedIn()) await liff.login();
+// ========================
+// 前端：簡化時間日期格式化
+// ========================
+function fixDate(t){
+  if(!t) return "";
+  return t;
+}
 
-      const profile = await liff.getProfile();
-      userId = profile.userId; 
-      userName = profile.displayName;
+function fixTime(t){
+  if(!t) return "";
+  return t;
+}
 
-      document.getElementById("userInfo").textContent = `${userName} 您好`;
-      document.getElementById("leaveName").value = userName;
+async function initLIFF(){
+  try{
+    await liff.init({ liffId: "2008786085-L1CtKqqv" });
+    if(!liff.isLoggedIn()) await liff.login();
+    const profile = await liff.getProfile();
+    userId = profile.userId;
+    userName = profile.displayName;
+    document.getElementById("userInfo").textContent = `${userName} 您好`;
 
-      const now = new Date();
-      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
-      document.getElementById("startDate").value = firstDay;
-      document.getElementById("endDate").value = lastDay;
-      loadLeaveRecords(firstDay, lastDay);
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
+    const lastDay  = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().slice(0,10);
+    document.getElementById("startDate").value = firstDay;
+    document.getElementById("endDate").value = lastDay;
+    loadLeaveRecords(firstDay,lastDay);
 
-    } catch (err) {
-      console.error(err);
-      document.getElementById("userInfo").textContent = "無法取得使用者資訊，請在 LINE 打開此頁面。";
-    }
+  }catch(err){
+    console.error(err);
+    document.getElementById("userInfo").textContent = "無法取得使用者資訊，請在 LINE 打開此頁面。";
   }
+}
 
-  // 計算請假時數（簡單計算：結束時間 - 開始時間）
-  function calculateLeaveHours() {
-    const startDate = document.getElementById("leaveStartDate").value;
-    const startTime = document.getElementById("leaveStartTime").value;
-    const endDate = document.getElementById("leaveEndDate").value;
-    const endTime = document.getElementById("leaveEndTime").value;
+async function loadLeaveRecords(start="", end=""){
+  const tbody = document.getElementById("leaveRecordTable");
+  tbody.innerHTML = "<tr><td colspan='8'>載入中...</td></tr>";
 
-    if (!startDate || !startTime || !endDate || !endTime) return;
+  try {
+    const sDate = start || new Date().toISOString().slice(0,10);
+    const eDate = end || sDate;
 
-    const start = new Date(`${startDate}T${startTime}:00`);
-    const end = new Date(`${endDate}T${endTime}:00`);
-    
-    const diffInMs = end - start;
-    const hours = (diffInMs / (1000 * 60 * 60)).toFixed(2);
+    const res = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}&start=${sDate}&end=${eDate}`);
+    const data = await res.json();
 
-    document.getElementById("leaveHours").value = hours;
-  }
-
-  // 提交請假申請
-  async function submitLeave() {
-    const leaveType = document.getElementById("leaveType").value;
-    const leaveReason = document.getElementById("leaveReason").value;
-    const leaveStartDate = document.getElementById("leaveStartDate").value;
-    const leaveStartTime = document.getElementById("leaveStartTime").value;
-    const leaveEndDate = document.getElementById("leaveEndDate").value;
-    const leaveEndTime = document.getElementById("leaveEndTime").value;
-    const leaveHours = document.getElementById("leaveHours").value;
-
-    if (!leaveStartDate || !leaveStartTime || !leaveEndDate || !leaveEndTime || !leaveReason) {
-      return Swal.fire({ icon: "info", title: "請填完整資料", timer: 1500, showConfirmButton: false });
+    if(!data.length) {
+      tbody.innerHTML = "<tr><td colspan='8'>無紀錄</td></tr>";
+      return;
     }
 
-    try {
-      const res = await fetch(API_ENDPOINT, {
-        method: "POST",
-        body: JSON.stringify({
-          action: "leave",
-          userId,
-          userName,
-          date: leaveStartDate,
-          startTime: leaveStartTime,
-          endTime: leaveEndTime,
-          leaveType,
-          leaveReason,
-          leaveHours
-        })
-      });
+    const fragment = document.createDocumentFragment();
+    data.forEach(r => {
+      const row = document.createElement("tr");
+      const status = r.簽核1 && r.簽核2 ? "已簽核" : (r.簽核1 === "核准" ? "簽核中" : "未審核");
+      row.innerHTML = `
+        <td>${r.假別}</td>
+        <td>${r.事由}</td>
+        <td>${fixDate(r.起始日期)}</td>
+        <td>${fixTime(r.起始時間)}</td>
+        <td>${fixDate(r.終止日期)}</td>
+        <td>${fixTime(r.終止時間)}</td>
+        <td>${r.請假時數}</td>
+        <td>${status}</td>
+      `;
+      fragment.appendChild(row);
+    });
 
-      const data = await res.json();
-      if (data.success) {
-        Swal.fire({ icon: "success", title: data.message || "請假申請完成", timer: 1500, showConfirmButton: false });
-      } else {
-        Swal.fire({ icon: "error", title: data.message || "請假申請失敗", timer: 1500, showConfirmButton: false });
-      }
+    tbody.innerHTML = "";
+    tbody.appendChild(fragment);
 
-      document.getElementById("leaveReason").value = "";
-      document.getElementById("leaveStartDate").value = "";
-      document.getElementById("leaveStartTime").value = "09:00";
-      document.getElementById("leaveEndDate").value = "";
-      document.getElementById("leaveEndTime").value = "18:00";
-      document.getElementById("leaveHours").value = "";
-
-    } catch (err) {
-      console.error(err);
-      Swal.fire({ icon: "error", title: "請假申請失敗", timer: 1500, showConfirmButton: false });
-    }
+  } catch(err) {
+    console.error(err);
+    tbody.innerHTML = "<tr><td colspan='8'>讀取失敗</td></tr>";
   }
+}
 
-  // ========================
-  // 載入請假紀錄
-  // ========================
-  async function loadLeaveRecords(start = "", end = "") {
-    const tbody = document.getElementById("leaveRecordTable");
-    tbody.innerHTML = "<tr><td colspan='8'>載入中...</td></tr>";
+// 請假申請
+document.getElementById("btnLeaveSubmit").onclick = async ()=>{
 
-    try {
-      const sDate = start || new Date().toISOString().slice(0, 10); // 格式: YYYY-MM-DD
-      const eDate = end || sDate;
+  const leaveType = document.getElementById("leaveType").value;
+  const leaveReason = document.getElementById("leaveReason").value.trim();
+  const startDate = document.getElementById("startDateInput").value;
+  const startTime = document.getElementById("startTimeInput").value;
+  const endDate = document.getElementById("endDateInput").value;
+  const endTime = document.getElementById("endTimeInput").value;
+  const leaveHours = document.getElementById("leaveHours").value;
 
-      console.log(`請求的日期範圍: 開始日期 = ${sDate}, 結束日期 = ${eDate}`);
+  if(!leaveReason || !startDate || !startTime || !endDate || !endTime || !leaveHours)
+    return Swal.fire({icon:"info",title:"請填寫完整資料",timer:1500,showConfirmButton:false});
 
-      const res = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}&start=${sDate}&end=${eDate}`);
-      const data = await res.json();
+  try{
+    const res = await fetch(API_ENDPOINT,{
+      method:"POST",
+      body: JSON.stringify({ 
+        action:"leave", 
+        userId, 
+        userName, 
+        leaveType, 
+        leaveReason, 
+        startDate, 
+        startTime, 
+        endDate, 
+        endTime, 
+        leaveHours 
+      })
+    });
 
-      if (!Array.isArray(data) || data.length === 0) {
-        tbody.innerHTML = "<tr><td colspan='8'>無請假紀錄</td></tr>";
-        return;
-      }
+    const data = await res.json();
+    Swal.fire({icon:"success",title:data.message || "請假申請成功",timer:1500,showConfirmButton:false});
+    loadLeaveRecords();
 
-      const fragment = document.createDocumentFragment();
-      data.forEach(r => {
-        const row = document.createElement("tr");
-
-        const formatDate = (dateStr) => {
-          const date = new Date(dateStr);
-          if (isNaN(date.getTime()) || dateStr === '1899-12-30T00:00:00.000Z') {
-            return '--';
-          }
-          return `${date.getFullYear()}-${('0' + (date.getMonth() + 1)).slice(-2)}-${('0' + date.getDate()).slice(-2)}`;
-        };
-
-        const formatTime = (timeStr) => {
-          const time = new Date(timeStr);
-          if (isNaN(time.getTime())) {
-            return '--';
-          }
-          return `${('0' + time.getHours()).slice(-2)}:${('0' + time.getMinutes()).slice(-2)}`;
-        };
-
-        row.innerHTML = `
-          <td>${r.userName}</td>
-          <td>${r.leaveType}</td>
-          <td>${r.leaveReason}</td>
-          <td>${formatDate(r.startDate)}</td>
-          <td>${formatTime(r.startTime)}</td>
-          <td>${formatDate(r.endDate)}</td>
-          <td>${formatTime(r.endTime)}</td>
-          <td>${r.leaveHours}</td>
-        `;
-        fragment.appendChild(row);
-      });
-
-      tbody.innerHTML = "";
-      tbody.appendChild(fragment);
-
-    } catch (err) {
-      console.error(err);
-      tbody.innerHTML = "<tr><td colspan='8'>讀取失敗</td></tr>";
-    }
+  }catch{
+    Swal.fire({icon:"error",title:"請假申請失敗",timer:1500,showConfirmButton:false});
   }
+};
 
-  // 初始化 LIFF
-  window.onload = initLIFF;
+document.getElementById("btnSearch").onclick = ()=> {
+  const start = document.getElementById("startDate").value;
+  const end = document.getElementById("endDate").value;
+  if(!start || !end) return Swal.fire({icon:"info",title:"請選擇完整日期範圍",timer:1500,showConfirmButton:false});
+  loadLeaveRecords(start, end);
+};
+
+document.getElementById("btnClear").onclick = ()=> {
+  document.getElementById("startDate").value = "";
+  document.getElementById("endDate").value = "";
+  loadLeaveRecords();
+};
+
+window.onload = initLIFF;
 </script>
-
 </body>
 </html>
