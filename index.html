@@ -54,22 +54,18 @@
 <table>
   <thead>
     <tr>
-      <th>請假日期</th>
+      <th>員工姓名</th>
       <th>假別</th>
       <th>事由</th>
+      <th>起始日期</th>
       <th>起始時間</th>
-      <th>結束時間</th>
+      <th>終止日期</th>
+      <th>終止時間</th>
       <th>請假時數</th>
-      <th>簽核1</th>
-      <th>簽核人1</th>
-      <th>簽核日期1</th>
-      <th>簽核2</th>
-      <th>簽核人2</th>
-      <th>簽核日期2</th>
     </tr>
   </thead>
   <tbody id="leaveRecordTable">
-    <tr><td colspan='12'>載入中...</td></tr>
+    <tr><td colspan='8'>載入中...</td></tr>
   </tbody>
 </table>
 
@@ -184,7 +180,7 @@
   // 載入請假紀錄
   async function loadLeaveRecords(start="", end="") {
     const tbody = document.getElementById("leaveRecordTable");
-    tbody.innerHTML = "<tr><td colspan='12'>載入中...</td></tr>";
+    tbody.innerHTML = "<tr><td colspan='8'>載入中...</td></tr>";
 
     try {
       const sDate = start || new Date().toISOString().slice(0, 10);
@@ -194,7 +190,7 @@
       const data = await res.json();
 
       if (!data.length) {
-        tbody.innerHTML = "<tr><td colspan='12'>無請假紀錄</td></tr>";
+        tbody.innerHTML = "<tr><td colspan='8'>無請假紀錄</td></tr>";
         return;
       }
 
@@ -202,18 +198,14 @@
       data.forEach(r => {
         const row = document.createElement("tr");
         row.innerHTML = `
-          <td>${r.startDate}</td>
+          <td>${r.userName}</td>
           <td>${r.leaveType}</td>
-          <td>${r.reason}</td>
+          <td>${r.leaveReason}</td>
+          <td>${r.startDate}</td>
           <td>${r.startTime}</td>
+          <td>${r.endDate}</td>
           <td>${r.endTime}</td>
           <td>${r.leaveHours}</td>
-          <td>${r.sign1Status}</td>
-          <td>${r.sign1Name}</td>
-          <td>${r.sign1Date}</td>
-          <td>${r.sign2Status}</td>
-          <td>${r.sign2Name}</td>
-          <td>${r.sign2Date}</td>
         `;
         fragment.appendChild(row);
       });
@@ -223,7 +215,7 @@
 
     } catch (err) {
       console.error("載入請假紀錄錯誤: ", err);
-      tbody.innerHTML = "<tr><td colspan='12'>讀取失敗</td></tr>";
+      tbody.innerHTML = "<tr><td colspan='8'>讀取失敗</td></tr>";
     }
   }
 
@@ -242,4 +234,5 @@
 
 </body>
 </html>
+
 
