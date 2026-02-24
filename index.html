@@ -6,13 +6,12 @@
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
-    body{font-family:Arial,sans-serif;padding:20px;}
-    table{border-collapse:collapse;width:100%;}
-    th,td{border:1px solid #ccc;padding:8px;text-align:center;}
-    th{background:#f4f4f4;}
-    input,button,select{padding:5px;margin:5px;}
-    .waiting{color:orange;font-weight:bold;}
-    .controls { padding: 20px; border: 1px solid #ccc; margin-top: 20px; }
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background: #f4f4f4; }
+    input, button, select { padding: 5px; margin: 5px; }
+    .waiting { color: orange; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -28,29 +27,7 @@
   <button id="btnClear">清除</button>
 </div>
 
-<!-- 請假申請區域 -->
-<div class="controls">
-  <input id="leaveName" placeholder="員工姓名" readonly>
-  <select id="leaveType">
-    <option>特休</option>
-    <option>事假</option>
-    <option>病假</option>
-    <option>公假</option>
-    <option>婚假</option>
-    <option>喪假</option>
-    <option>生理假</option>
-  </select>
-  <input id="leaveReason" placeholder="事由">
-  <input type="date" id="leaveStartDate" onchange="calculateLeaveHours()">
-  <input type="time" id="leaveStartTime" value="09:00" onchange="calculateLeaveHours()">
-  <input type="date" id="leaveEndDate" onchange="calculateLeaveHours()">
-  <input type="time" id="leaveEndTime" value="18:00" onchange="calculateLeaveHours()">
-  <input type="number" id="leaveHours" placeholder="請假時數" style="width:80px" readonly>
-  <button id="submitLeaveBtn" onclick="submitLeave()">送出請假</button>
-  <button onclick="window.open('https://excdl.github.io/leave-and-sign/','_blank')">查看請假 | 簽核</button>
-</div>
-
-<!-- 載入請假紀錄表格 -->
+<!-- 顯示請假紀錄表格 -->
 <table>
   <thead>
     <tr>
@@ -65,117 +42,49 @@
     </tr>
   </thead>
   <tbody id="leaveRecordTable">
-    <tr><td colspan='8'>載入中...</td></tr>
+    <tr><td colspan="8">載入中...</td></tr>
   </tbody>
 </table>
 
 <script>
-  const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbzpPvboL4Yo6KedY9mkPaa8lBmJLUIrZMUw6gD_lGtAv0u5XtjCATiOPqa-RvXwGCPM/exec";
+  const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbxZ17Zv2GFO_VeMHgokqDttahGjbx9Kwrf7QOYobWYaySo5fmIz62Q8GJQkgE1iH-sz/exec";
   let userId = "";
   let userName = "";
 
-  // 初始化 LIFF，獲取 LINE ID 和用戶資料
+  // 格式化日期
+  function fixDate(t){
+    if(!t) return "";
+    return t;  // 預設資料已是 "yyyy/MM/dd" 格式
+  }
+
+  // 格式化時間
+  function fixTime(t){
+    if(!t) return "";
+    return t;  // 預設資料已是 "HH:mm:ss" 格式
+  }
+
+  // 初始化 LIFF
   async function initLIFF() {
     try {
       await liff.init({ liffId: "2008786085-L1CtKqqv" });
-      if (!liff.isLoggedIn()) await liff.login();  // 如果未登錄，則引導登錄
-
+      if (!liff.isLoggedIn()) await liff.login();
       const profile = await liff.getProfile();
       userId = profile.userId;
       userName = profile.displayName;
-
       document.getElementById("userInfo").textContent = `${userName} 您好`;
-      document.getElementById("leaveName").value = userName;
+
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+      document.getElementById("startDate").value = firstDay;
+      document.getElementById("endDate").value = lastDay;
+      loadLeaveRecords(firstDay, lastDay);
+
     } catch (err) {
       console.error(err);
       document.getElementById("userInfo").textContent = "無法取得使用者資訊，請在 LINE 打開此頁面。";
     }
   }
-
-  // 計算請假時數（簡單計算：結束時間 - 開始時間）
-  function calculateLeaveHours() {
-    const startDate = document.getElementById("leaveStartDate").value;
-    const startTime = document.getElementById("leaveStartTime").value;
-    const endDate = document.getElementById("leaveEndDate").value;
-    const endTime = document.getElementById("leaveEndTime").value;
-
-    if (!startDate || !startTime || !endDate || !endTime) return;
-
-    const start = new Date(`${startDate}T${startTime}:00`);
-    const end = new Date(`${endDate}T${endTime}:00`);
-    
-    const diffInMs = end - start;
-    const hours = (diffInMs / (1000 * 60 * 60)).toFixed(2);
-
-    document.getElementById("leaveHours").value = hours;
-  }
-
-  // 提交請假申請
-  async function submitLeave() {
-    const leaveType = document.getElementById("leaveType").value;
-    const leaveReason = document.getElementById("leaveReason").value;
-    let leaveStartDate = document.getElementById("leaveStartDate").value;
-    let leaveStartTime = document.getElementById("leaveStartTime").value;
-    let leaveEndDate = document.getElementById("leaveEndDate").value;
-    let leaveEndTime = document.getElementById("leaveEndTime").value;
-    const leaveHours = document.getElementById("leaveHours").value;
-
-    if (!leaveStartDate || !leaveStartTime || !leaveEndDate || !leaveEndTime || !leaveReason) {
-      return Swal.fire({ icon: "info", title: "請填完整資料", timer: 1500, showConfirmButton: false });
-    }
-
-    // 強制轉換日期格式為 YYYY/MM/DD
-    leaveStartDate = formatDate(leaveStartDate);
-    leaveEndDate = formatDate(leaveEndDate);
-
-    try {
-      const res = await fetch(API_ENDPOINT, {
-        method: "POST",
-        body: JSON.stringify({
-          action: "leave",
-          userId,
-          userName,
-          date: leaveStartDate,
-          startTime: leaveStartTime,
-          endTime: leaveEndTime,
-          leaveType,
-          leaveReason,
-          leaveHours
-        })
-      });
-
-      const data = await res.json();
-
-      if (data.success) {
-        Swal.fire({ icon: "success", title: data.message || "請假申請完成", timer: 1500, showConfirmButton: false });
-      } else {
-        Swal.fire({ icon: "error", title: data.message || "請假申請失敗", timer: 1500, showConfirmButton: false });
-      }
-
-      document.getElementById("leaveReason").value = "";
-      document.getElementById("leaveStartDate").value = "";
-      document.getElementById("leaveStartTime").value = "09:00";
-      document.getElementById("leaveEndDate").value = "";
-      document.getElementById("leaveEndTime").value = "18:00";
-      document.getElementById("leaveHours").value = "";
-
-    } catch (err) {
-      console.error("請假申請錯誤: ", err);
-      Swal.fire({ icon: "error", title: "請假申請失敗", text: err.message, timer: 1500, showConfirmButton: false });
-    }
-  }
-
-  // 當用戶點擊查詢按鈕時，載入指定日期範圍的請假記錄
-  document.getElementById("btnSearch").addEventListener("click", function() {
-    const startDate = document.getElementById("startDate").value;
-    const endDate = document.getElementById("endDate").value;
-
-    if (startDate && endDate) {
-      loadLeaveRecords(startDate, endDate);  // 查詢請假紀錄
-    } else {
-      Swal.fire({ icon: "info", title: "請選擇日期範圍", timer: 1500, showConfirmButton: false });
-    }
-  });
 
   // 載入請假紀錄
   async function loadLeaveRecords(start="", end="") {
@@ -201,10 +110,10 @@
           <td>${r.userName}</td>
           <td>${r.leaveType}</td>
           <td>${r.leaveReason}</td>
-          <td>${r.startDate}</td>
-          <td>${r.startTime}</td>
-          <td>${r.endDate}</td>
-          <td>${r.endTime}</td>
+          <td>${fixDate(r.startDate)}</td>
+          <td>${fixTime(r.startTime)}</td>
+          <td>${fixDate(r.endDate)}</td>
+          <td>${fixTime(r.endTime)}</td>
           <td>${r.leaveHours}</td>
         `;
         fragment.appendChild(row);
@@ -214,25 +123,28 @@
       tbody.appendChild(fragment);
 
     } catch (err) {
-      console.error("載入請假紀錄錯誤: ", err);
+      console.error(err);
       tbody.innerHTML = "<tr><td colspan='8'>讀取失敗</td></tr>";
     }
   }
 
-  // 強制格式化日期為 YYYY/MM/DD
-  function formatDate(dateString) {
-    const date = new Date(dateString);
-    const year = date.getFullYear();
-    const month = (date.getMonth() + 1).toString().padStart(2, "0");
-    const day = date.getDate().toString().padStart(2, "0");
-    return `${year}/${month}/${day}`;
-  }
+  // 查詢請假紀錄
+  document.getElementById("btnSearch").onclick = () => {
+    const start = document.getElementById("startDate").value;
+    const end = document.getElementById("endDate").value;
+    if (!start || !end) return Swal.fire({ icon: "info", title: "請選擇完整日期範圍", timer: 1500, showConfirmButton: false });
+    loadLeaveRecords(start, end);
+  };
 
-  // 初始化 LIFF
+  // 清除篩選
+  document.getElementById("btnClear").onclick = () => {
+    document.getElementById("startDate").value = "";
+    document.getElementById("endDate").value = "";
+    loadLeaveRecords();
+  };
+
   window.onload = initLIFF;
 </script>
 
 </body>
 </html>
-
-
