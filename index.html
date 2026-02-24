@@ -34,7 +34,8 @@
   假別：<input type="text" id="leaveType" placeholder="請輸入假別">
   事由：<input type="text" id="leaveReason" placeholder="請輸入請假事由">
   
-  LINE ID：<input type="text" id="lineId" placeholder="請輸入LINE ID">
+  <!-- 移除 LINE ID 的輸入框 -->
+  <input type="hidden" id="lineId">  <!-- 自動填入 LINE ID，但不顯示在 UI 上 -->
 
   <button id="btnLeave">送出申請</button>
 </div>
@@ -64,46 +65,41 @@
 </table>
 
 <script>
-const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbzYkzoXutP7fA6FFlRIIkU_rbP9uvn5jlQnMcPBA7A1mRWbrjrMxWzYbOa-N3szRTVN/exec";
+const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbw6i-ZaqcMHWC5vPq6_vIMZw-IkFkBE9vT_WVHqMkhch3GXZak1pjTBPagIg-JNApSl/exec";
 let userId = "";
 let userName = "";
 
-// ========================
-// 前端：簡化時間日期格式化
-// ========================
-function fixDate(t){
-  if(!t) return "";
-  return t;
-}
-
-function fixTime(t){
-  if(!t) return "";
-  return t;
-}
-
-async function initLIFF(){
-  try{
+async function initLIFF() {
+  try {
     await liff.init({ liffId: "2008786085-L1CtKqqv" });
-    if(!liff.isLoggedIn()) await liff.login();
+    
+    if (!liff.isLoggedIn()) await liff.login();  // 如果未登錄，則引導登錄
+
     const profile = await liff.getProfile();
-    userId = profile.userId;
-    userName = profile.displayName;
+    userId = profile.userId;  // 這是用戶的 LINE ID
+    userName = profile.displayName;  // 用戶的顯示名稱
+
     document.getElementById("userInfo").textContent = `${userName} 您好`;
 
+    // 自動填入 LINE ID 到請假申請表單，但不顯示
+    document.getElementById("lineId").value = userId; 
+
+    // 設置日期範圍
     const now = new Date();
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
     const lastDay  = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().slice(0,10);
     document.getElementById("startDate").value = firstDay;
     document.getElementById("endDate").value = lastDay;
-    loadRecords(firstDay,lastDay);
+    loadRecords(firstDay, lastDay);
 
-  }catch(err){
+  } catch (err) {
     console.error(err);
     document.getElementById("userInfo").textContent = "無法取得使用者資訊，請在 LINE 打開此頁面。";
   }
 }
 
-async function loadRecords(start="", end=""){
+// 從 Google Sheets 讀取資料
+async function loadRecords(start="", end="") {
   const tbody = document.getElementById("recordTable");
   tbody.innerHTML = "<tr><td colspan='13'>載入中...</td></tr>";
 
@@ -114,7 +110,7 @@ async function loadRecords(start="", end=""){
     const res = await fetch(`${API_ENDPOINT}?action=getRecords&userId=${userId}&start=${sDate}&end=${eDate}`);
     const data = await res.json();
 
-    if(!data.length) {
+    if (!data.length) {
       tbody.innerHTML = "<tr><td colspan='13'>無紀錄</td></tr>";
       return;
     }
@@ -144,14 +140,14 @@ async function loadRecords(start="", end=""){
     tbody.innerHTML = "";
     tbody.appendChild(fragment);
 
-  } catch(err) {
+  } catch (err) {
     console.error(err);
     tbody.innerHTML = "<tr><td colspan='13'>讀取失敗</td></tr>";
   }
 }
 
 // 請假申請
-document.getElementById("btnLeave").onclick = async ()=>{
+document.getElementById("btnLeave").onclick = async () => {
 
   let date = document.getElementById("leaveDate").value.replace(/-/g,"/");
   let startTime = document.getElementById("startTime").value;
@@ -160,34 +156,48 @@ document.getElementById("btnLeave").onclick = async ()=>{
   let leaveReason = document.getElementById("leaveReason").value.trim();
   let lineId = document.getElementById("lineId").value.trim();
 
-  if(!date || !startTime || !endTime || !leaveType || !leaveReason || !lineId)
-    return Swal.fire({icon:"info",title:"請填完整資料",timer:1500,showConfirmButton:false});
+  if (!date || !startTime || !endTime || !leaveType || !leaveReason)
+    return Swal.fire({ icon: "info", title: "請填完整資料", timer: 1500, showConfirmButton: false });
 
-  try{
-    const res = await fetch(API_ENDPOINT,{
-      method:"POST",
-      body: JSON.stringify({ 
-        action:"leave", 
-        userId, 
-        userName, 
-        date, 
-        startTime, 
-        endTime, 
-        leaveType, 
+  try {
+    const res = await fetch(API_ENDPOINT, {
+      method: "POST",
+      body: JSON.stringify({
+        action: "leave",
+        userId,
+        userName,
+        date,
+        startTime,
+        endTime,
+        leaveType,
         leaveReason,
         lineId
       })
     });
 
     const data = await res.json();
-    Swal.fire({icon:"success",title:data.message||"請假申請完成",timer:1500,showConfirmButton:false});
+    Swal.fire({ icon: "success", title: data.message || "請假申請完成", timer: 1500, showConfirmButton: false });
     loadRecords();
 
-  }catch{
-    Swal.fire({icon:"error",title:"請假申請失敗",timer:1500,showConfirmButton:false});
+  } catch {
+    Swal.fire({ icon: "error", title: "請假申請失敗", timer: 1500, showConfirmButton: false });
   }
 };
 
-document.getElementById("btnSearch").onclick = ()=>{
+document.getElementById("btnSearch").onclick = () => {
   const start = document.getElementById("startDate").value;
-  const end = document
+  const end = document.getElementById("endDate").value;
+  if (!start || !end) return Swal.fire({ icon: "info", title: "請選擇完整日期範圍", timer: 1500, showConfirmButton: false });
+  loadRecords(start, end);
+};
+
+document.getElementById("btnClear").onclick = () => {
+  document.getElementById("startDate").value = "";
+  document.getElementById("endDate").value = "";
+  loadRecords();
+};
+
+window.onload = initLIFF;
+</script>
+</body>
+</html>
