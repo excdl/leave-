@@ -6,21 +6,30 @@
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-    th { background: #f4f4f4; }
-    input, button, select { padding: 5px; margin: 5px; }
-    .waiting { color: orange; font-weight: bold; }
+    body{font-family:Arial,sans-serif;padding:20px;}
+    table{border-collapse:collapse;width:100%;}
+    th,td{border:1px solid #ccc;padding:8px;text-align:center;}
+    th{background:#f4f4f4;}
+    input,button,select{padding:5px;margin:5px;}
+    .waiting{color:orange;font-weight:bold;}
+    .controls { padding: 20px; border: 1px solid #ccc; margin-top: 20px; }
   </style>
 </head>
 <body>
 
 <h2 id="userInfo">載入中...</h2>
 
+<!-- 日期篩選區域 -->
+<div>
+  日期篩選：
+  <input type="date" id="startDate"> 至
+  <input type="date" id="endDate">
+  <button id="btnSearch">查詢</button>
+  <button id="btnClear">清除</button>
+</div>
+
 <!-- 請假申請區域 -->
-<div style="margin-top: 20px; padding: 15px; border: 1px solid #ccc;">
-  <h3>請假申請</h3>
+<div class="controls">
   <input id="leaveName" placeholder="員工姓名" readonly>
   <select id="leaveType">
     <option>特休</option>
@@ -32,21 +41,13 @@
     <option>生理假</option>
   </select>
   <input id="leaveReason" placeholder="事由">
-  <input type="date" id="leaveStartDate">
-  <input type="time" id="leaveStartTime" value="09:00">
-  <input type="date" id="leaveEndDate">
-  <input type="time" id="leaveEndTime" value="18:00">
+  <input type="date" id="leaveStartDate" onchange="calculateLeaveHours()">
+  <input type="time" id="leaveStartTime" value="09:00" onchange="calculateLeaveHours()">
+  <input type="date" id="leaveEndDate" onchange="calculateLeaveHours()">
+  <input type="time" id="leaveEndTime" value="18:00" onchange="calculateLeaveHours()">
   <input type="number" id="leaveHours" placeholder="請假時數" style="width:80px" readonly>
   <button id="submitLeaveBtn" onclick="submitLeave()">送出請假</button>
-</div>
-
-<!-- 日期篩選區域 -->
-<div>
-  日期篩選：
-  <input type="date" id="startDate"> 至
-  <input type="date" id="endDate">
-  <button id="btnSearch">查詢</button>
-  <button id="btnClear">清除</button>
+ 
 </div>
 
 <!-- 顯示請假紀錄表格 -->
