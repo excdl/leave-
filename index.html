@@ -109,6 +109,18 @@
     document.getElementById("leaveHours").value = hours;  // 顯示請假時數
   }
 
+  // 格式化日期為 YYYY/MM/DD
+  function formatDate(dateStr) {
+    const date = new Date(dateStr);
+    return `${date.getFullYear()}/${('0' + (date.getMonth() + 1)).slice(-2)}/${('0' + date.getDate()).slice(-2)}`;
+  }
+
+  // 格式化時間為 HH:MM
+  function formatTime(timeStr) {
+    const time = new Date(timeStr);
+    return `${('0' + time.getHours()).slice(-2)}:${('0' + time.getMinutes()).slice(-2)}`;
+  }
+
   // 載入請假紀錄
   async function loadLeaveRecords() {
     const tbody = document.getElementById("leaveRecordTable");
@@ -142,16 +154,6 @@
       const fragment = document.createDocumentFragment();
       data.forEach(r => {
         const row = document.createElement("tr");
-
-        const formatDate = (dateStr) => {
-          const date = new Date(dateStr);
-          return `${date.getFullYear()}-${('0' + (date.getMonth() + 1)).slice(-2)}-${('0' + date.getDate()).slice(-2)}`;
-        };
-
-        const formatTime = (timeStr) => {
-          const time = new Date(timeStr);
-          return `${('0' + time.getHours()).slice(-2)}:${('0' + time.getMinutes()).slice(-2)}`;
-        };
 
         // 根據簽核狀態動態顯示顏色
         let signStatusClass = '';
