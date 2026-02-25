@@ -110,7 +110,6 @@
   }
 
   // 載入請假紀錄
-  // 載入請假紀錄
   async function loadLeaveRecords() {
     const tbody = document.getElementById("leaveRecordTable");
     tbody.innerHTML = "<tr><td colspan='9'>載入中...</td></tr>";
@@ -124,6 +123,21 @@
         tbody.innerHTML = "<tr><td colspan='9'>無請假紀錄</td></tr>";
         return;
       }
+
+      // 按照簽核狀態及請假日期排序
+      data.sort((a, b) => {
+        const signStatusOrder = {
+          '未簽核': 0,
+          '簽核中': 1,
+          '已簽核': 2
+        };
+        
+        if (a.signStatus === b.signStatus) {
+          // 若簽核狀態相同，按請假日期排序
+          return new Date(b.startDate) - new Date(a.startDate);  // 新的請假日期排在前
+        }
+        return signStatusOrder[a.signStatus] - signStatusOrder[b.signStatus];  // 先未簽核、再簽核中、最後已簽核
+      });
 
       const fragment = document.createDocumentFragment();
       data.forEach(r => {
@@ -201,6 +215,10 @@
       const data = await res.json();
       if (data.success) {
         Swal.fire({ icon: "success", title: data.message || "請假申請完成", timer: 1500, showConfirmButton: false });
+
+        // 提交後重新載入請假紀錄
+        loadLeaveRecords();  // 重載請假紀錄表格
+
       } else {
         Swal.fire({ icon: "error", title: data.message || "請假申請失敗", timer: 1500, showConfirmButton: false });
       }
@@ -222,7 +240,6 @@
   // 初始化 LIFF
   window.onload = initLIFF;
 </script>
+
 </body>
 </html>
-
-
