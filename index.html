@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
@@ -52,15 +52,16 @@
       <th>終止日期</th>
       <th>終止時間</th>
       <th>請假時數</th>
+      <th>簽核動態</th> <!-- 新增簽核動態欄位 -->
     </tr>
   </thead>
   <tbody id="leaveRecordTable">
-    <tr><td colspan="8">載入中...</td></tr>
+    <tr><td colspan="9">載入中...</td></tr>
   </tbody>
 </table>
 
 <script>
-  const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbyhmuZy7YZzI_Mw81WvNeDRgFMpIcXW-_mCRsRYanCgyah8aAbT4N1bevMzD1qrUoE9/exec";
+  const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbyZ_i8hmwQd5Gg4S0lyVAQbLyET78xe1kBDjO02es_BvFqM9p0kpaHD3BAsPHHew1Lr/exec";
   let userId = "";
   let userName = "";
 
@@ -108,7 +109,7 @@
   // 載入請假紀錄
   async function loadLeaveRecords() {
     const tbody = document.getElementById("leaveRecordTable");
-    tbody.innerHTML = "<tr><td colspan='8'>載入中...</td></tr>";
+    tbody.innerHTML = "<tr><td colspan='9'>載入中...</td></tr>";
 
     try {
       const res = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`);
@@ -116,7 +117,7 @@
       console.log(data);  // 日誌：查看 API 返回的數據
 
       if (!data.length) {
-        tbody.innerHTML = "<tr><td colspan='8'>無請假紀錄</td></tr>";
+        tbody.innerHTML = "<tr><td colspan='9'>無請假紀錄</td></tr>";
         return;
       }
 
@@ -126,13 +127,20 @@
 
         const formatDate = (dateStr) => {
           const date = new Date(dateStr);
-          return `${date.getFullYear()}-${('0' + (date.getMonth() + 1)).slice(-2)}-${('0' + date.getDate()).slice(-2)}`;
+          return `${date.getFullYear()}/${('0' + (date.getMonth() + 1)).slice(-2)}/${('0' + date.getDate()).slice(-2)}`;
         };
 
         const formatTime = (timeStr) => {
           const time = new Date(timeStr);
           return `${('0' + time.getHours()).slice(-2)}:${('0' + time.getMinutes()).slice(-2)}`;
         };
+
+        // 簽核動態顯示
+        const L = r[11], O = r[14];
+        let status = '', colorClass = '';
+        if (!L && !O) { status = '未簽核'; colorClass = 'badge-未簽核'; }
+        else if (L && !O) { status = '簽核中'; colorClass = (L === '核准') ? 'badge-簽核中' : 'badge-未簽核'; }
+        else if (L && O) { status = '已簽核'; colorClass = (O === '核准') ? 'badge-已簽核' : 'badge-未簽核'; }
 
         row.innerHTML = `
           <td>${r.userName}</td>
@@ -143,6 +151,7 @@
           <td>${formatDate(r.endDate)}</td>
           <td>${formatTime(r.endTime)}</td>
           <td>${r.leaveHours}</td>
+          <td class="${colorClass}">${status}</td>  <!-- 顯示簽核狀態 -->
         `;
         fragment.appendChild(row);
       });
@@ -151,7 +160,7 @@
 
     } catch (err) {
       console.error("讀取請假紀錄失敗:", err);
-      tbody.innerHTML = "<tr><td colspan='8'>讀取失敗</td></tr>";
+      tbody.innerHTML = "<tr><td colspan='9'>讀取失敗</td></tr>";
     }
   }
 
@@ -212,4 +221,3 @@
 
 </body>
 </html>
-
