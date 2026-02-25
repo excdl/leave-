@@ -55,7 +55,7 @@
       <th>終止日期</th>
       <th>終止時間</th>
       <th>請假時數</th>
-      <th>簽核狀態</th> <!-- 新增簽核狀態欄位 -->
+      <th>簽核狀態</th>
     </tr>
   </thead>
   <tbody id="leaveRecordTable">
@@ -89,6 +89,26 @@
       console.error("LIFF 初始化錯誤", err);
       document.getElementById("userInfo").textContent = "無法取得使用者資訊，請在 LINE 打開此頁面。";
     }
+  }
+
+  // 計算請假時數（簡單計算：結束時間 - 開始時間）
+  function calculateLeaveHours() {
+    const startDate = document.getElementById("leaveStartDate").value;
+    const startTime = document.getElementById("leaveStartTime").value;
+    const endDate = document.getElementById("leaveEndDate").value;
+    const endTime = document.getElementById("leaveEndTime").value;
+
+    if (!startDate || !startTime || !endDate || !endTime) return;
+
+    const start = new Date(`${startDate}T${startTime}:00`);
+    const end = new Date(`${endDate}T${endTime}:00`);
+
+    const diffInMs = end - start;
+    if (diffInMs < 0) return Swal.fire({ icon: "error", title: "結束時間不能早於開始時間", timer: 1500, showConfirmButton: false });
+
+    const hours = (diffInMs / (1000 * 60 * 60)).toFixed(2);  // 以小時為單位計算
+
+    document.getElementById("leaveHours").value = hours;  // 顯示請假時數
   }
 
   // 載入請假紀錄
@@ -155,4 +175,5 @@
 
 </body>
 </html>
+
 
