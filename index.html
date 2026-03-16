@@ -1,46 +1,28 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8">
-  <title>請假紀錄</title>
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-    th { background: #f4f4f4; }
-    input, button, select { padding: 5px; margin: 5px; }
-    .waiting { color: orange; font-weight: bold; }
-    .controls { padding: 20px; border: 1px solid #ccc; margin-top: 20px; }
-    .badge-未簽核 { background-color: red; color: white; padding: 5px 10px; border-radius: 5px; }
-    .badge-簽核中 { background-color: orange; color: white; padding: 5px 10px; border-radius: 5px; }
-    .badge-已簽核 { background-color: green; color: white; padding: 5px 10px; border-radius: 5px; }
-  </style>
+<meta charset="UTF-8">
+<title>請假紀錄</title>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+  th { background: #f4f4f4; }
+  .badge-未簽核 { background-color: red; color: white; padding: 5px 10px; border-radius: 5px; }
+  .badge-簽核中 { background-color: orange; color: white; padding: 5px 10px; border-radius: 5px; }
+  .badge-已簽核 { background-color: green; color: white; padding: 5px 10px; border-radius: 5px; }
+  button { padding: 8px 16px; margin: 5px; cursor: pointer; }
+</style>
 </head>
 <body>
 
 <h2 id="userInfo">載入中...</h2>
 
-<!-- 請假申請區域 -->
-<div class="controls">
-  <input id="leaveName" placeholder="員工姓名" readonly>
-  <select id="leaveType">
-    <option>特休</option>
-    <option>事假</option>
-    <option>病假</option>
-    <option>公假</option>
-    <option>婚假</option>
-    <option>喪假</option>
-    <option>生理假</option>
-  </select>
-  <input id="leaveReason" placeholder="事由">
-  <input type="date" id="leaveStartDate" onchange="calculateLeaveHours()">
-  <input type="time" id="leaveStartTime" value="09:00" onchange="calculateLeaveHours()">
-  <input type="date" id="leaveEndDate" onchange="calculateLeaveHours()">
-  <input type="time" id="leaveEndTime" value="18:00" onchange="calculateLeaveHours()">
-  <input type="number" id="leaveHours" placeholder="請假時數" style="width:80px" readonly>
-  <button id="submitLeaveBtn" onclick="submitLeave()">送出請假</button>
+<!-- 請假申請按鈕 -->
+<div>
+  <button id="btnLeaveApply" class="btn-success">新增請假</button>
 </div>
 
 <!-- 顯示請假紀錄表格 -->
@@ -64,184 +46,183 @@
 </table>
 
 <script>
-  const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbzN5EWz9SO9pDQ55qZerw9x2bqBq9_uXmtmPnlCrscF20Oau7fGARO8j8zs8fFEunhx/exec";
-  let userId = "";
-  let userName = "";
+const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbzN5EWz9SO9pDQ55qZerw9x2bqBq9_uXmtmPnlCrscF20Oau7fGARO8j8zs8fFEunhx/exec";
+let userId = "";
+let userName = "";
 
-  // 初始化 LIFF，獲取 LINE ID 和用戶資料
-  async function initLIFF() {
-    try {
-      await liff.init({ liffId: "2009444587-t79pfL2A" });
-      if (!liff.isLoggedIn()) await liff.login();  // 如果未登錄，則引導登錄
+// 初始化 LIFF
+async function initLIFF() {
+  try {
+    await liff.init({ liffId: "2009444587-t79pfL2A" });
+    if (!liff.isLoggedIn()) await liff.login();
 
-      const profile = await liff.getProfile();
-      userId = profile.userId;  // 這是用戶的 LINE ID
-      userName = profile.displayName;  // 用戶的顯示名稱
+    const profile = await liff.getProfile();
+    userId = profile.userId;
+    userName = profile.displayName;
+    document.getElementById("userInfo").textContent = `${userName} 您好`;
 
-      document.getElementById("userInfo").textContent = `${userName} 您好`;
+    loadLeaveRecords();
+  } catch (err) {
+    console.error(err);
+    document.getElementById("userInfo").textContent = "無法取得使用者資訊";
+  }
+}
 
-      // 自動填入員工姓名
-      document.getElementById("leaveName").value = userName;
+// 彈跳請假表單
+document.getElementById("btnLeaveApply").onclick = () => {
+  Swal.fire({
+    html: `
+      <div style="text-align:left;">
+        <h3 style="margin-bottom:12px;">📝 請假申請</h3>
+        <form id="leaveForm">
+          <div style="display:flex;align-items:center;margin-bottom:8px;">
+            <label style="width:80px;text-align:right;margin-right:8px;">假別</label>
+            <select id="leaveType" style="flex:1;padding:6px;">
+              <option>特休</option>
+              <option>事假</option>
+              <option>病假</option>
+              <option>公假</option>
+              <option>婚假</option>
+              <option>喪假</option>
+              <option>生理假</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;margin-bottom:8px;">
+            <label style="width:80px;text-align:right;margin-right:8px;">事由</label>
+            <input id="leaveReason" style="flex:1;padding:6px;" placeholder="請輸入請假事由">
+          </div>
+          <div style="display:flex;align-items:center;margin-bottom:8px;">
+            <label style="width:80px;text-align:right;margin-right:8px;">起始日期</label>
+            <input type="date" id="leaveStartDate" style="flex:1;" onchange="calculateLeaveHours()">
+          </div>
+          <div style="display:flex;align-items:center;margin-bottom:8px;">
+            <label style="width:80px;text-align:right;margin-right:8px;">起始時間</label>
+            <input type="time" id="leaveStartTime" value="09:00" style="flex:1;" onchange="calculateLeaveHours()">
+          </div>
+          <div style="display:flex;align-items:center;margin-bottom:8px;">
+            <label style="width:80px;text-align:right;margin-right:8px;">終止日期</label>
+            <input type="date" id="leaveEndDate" style="flex:1;" onchange="calculateLeaveHours()">
+          </div>
+          <div style="display:flex;align-items:center;margin-bottom:8px;">
+            <label style="width:80px;text-align:right;margin-right:8px;">終止時間</label>
+            <input type="time" id="leaveEndTime" value="18:00" style="flex:1;" onchange="calculateLeaveHours()">
+          </div>
+          <div style="display:flex;align-items:center;margin-bottom:8px;">
+            <label style="width:80px;text-align:right;margin-right:8px;">請假時數</label>
+            <input type="number" id="leaveHours" style="flex:1;" readonly>
+          </div>
+        </form>
+      </div>
+    `,
+    showConfirmButton: false,
+    showCloseButton: true,
+    didOpen: () => {
+      window.calculateLeaveHours = () => {
+        const startDate = document.getElementById("leaveStartDate").value;
+        const startTime = document.getElementById("leaveStartTime").value;
+        const endDate = document.getElementById("leaveEndDate").value;
+        const endTime = document.getElementById("leaveEndTime").value;
+        if (!startDate || !startTime || !endDate || !endTime) return;
+        const start = new Date(`${startDate}T${startTime}:00`);
+        const end = new Date(`${endDate}T${endTime}:00`);
+        const hours = ( (end - start)/(1000*60*60) ).toFixed(2);
+        document.getElementById("leaveHours").value = hours;
+      };
 
-      loadLeaveRecords();  // 直接載入請假紀錄
+      document.getElementById("leaveForm").onsubmit = async (e) => e.preventDefault();
 
-    } catch (err) {
-      console.error("LIFF 初始化錯誤", err);
-      document.getElementById("userInfo").textContent = "無法取得使用者資訊，請在 LINE 打開此頁面。";
+      const submitBtn = document.createElement("button");
+      submitBtn.textContent = "送出";
+      submitBtn.className = "btn-success";
+      submitBtn.style.marginRight = "8px";
+      submitBtn.onclick = submitLeaveForm;
+
+      const btnContainer = document.createElement("div");
+      btnContainer.style.textAlign = "right";
+      btnContainer.style.marginTop = "12px";
+      btnContainer.appendChild(submitBtn);
+
+      document.querySelector(".swal2-html-container").appendChild(btnContainer);
     }
+  });
+};
+
+// 提交請假表單
+async function submitLeaveForm() {
+  const leaveType = document.getElementById("leaveType").value;
+  const leaveReason = document.getElementById("leaveReason").value;
+  const leaveStartDate = document.getElementById("leaveStartDate").value;
+  const leaveStartTime = document.getElementById("leaveStartTime").value;
+  const leaveEndDate = document.getElementById("leaveEndDate").value;
+  const leaveEndTime = document.getElementById("leaveEndTime").value;
+  const leaveHours = document.getElementById("leaveHours").value;
+
+  if (!leaveReason || !leaveStartDate || !leaveStartTime || !leaveEndDate || !leaveEndTime) {
+    return Swal.fire({ icon: "info", title: "請填完整資料", timer:1500, showConfirmButton:false });
   }
 
-  // 計算請假時數（簡單計算：結束時間 - 開始時間）
-  function calculateLeaveHours() {
-    const startDate = document.getElementById("leaveStartDate").value;
-    const startTime = document.getElementById("leaveStartTime").value;
-    const endDate = document.getElementById("leaveEndDate").value;
-    const endTime = document.getElementById("leaveEndTime").value;
-
-    if (!startDate || !startTime || !endDate || !endTime) return;
-
-    const start = new Date(`${startDate}T${startTime}:00`);
-    const end = new Date(`${endDate}T${endTime}:00`);
-
-    const diffInMs = end - start;
-    const hours = (diffInMs / (1000 * 60 * 60)).toFixed(2);  // 以小時為單位計算
-
-    document.getElementById("leaveHours").value = hours;  // 顯示請假時數
-  }
-
-  // 格式化日期為 YYYY/MM/DD
-  function formatDate(dateStr) {
-    const date = new Date(dateStr);
-    return `${date.getFullYear()}/${('0' + (date.getMonth() + 1)).slice(-2)}/${('0' + date.getDate()).slice(-2)}`;
-  }
-
-  // 格式化時間為 HH:MM
-  function formatTime(timeStr) {
-    const time = new Date(timeStr);
-    return `${('0' + time.getHours()).slice(-2)}:${('0' + time.getMinutes()).slice(-2)}`;
-  }
-
-  // 載入請假紀錄
-  async function loadLeaveRecords() {
-    const tbody = document.getElementById("leaveRecordTable");
-    tbody.innerHTML = "<tr><td colspan='9'>載入中...</td></tr>";
-
-    try {
-      const res = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`);
-      const data = await res.json();
-      console.log(data);  // 日誌：查看 API 返回的數據
-
-      if (!data.length) {
-        tbody.innerHTML = "<tr><td colspan='9'>無請假紀錄</td></tr>";
-        return;
-      }
-
-      // 按照簽核狀態及請假日期排序
-      data.sort((a, b) => {
-        const signStatusOrder = {
-          '未簽核': 0,
-          '簽核中': 1,
-          '已簽核': 2
-        };
-        
-        if (a.signStatus === b.signStatus) {
-          // 若簽核狀態相同，按請假日期排序
-          return new Date(b.startDate) - new Date(a.startDate);  // 新的請假日期排在前
-        }
-        return signStatusOrder[a.signStatus] - signStatusOrder[b.signStatus];  // 先未簽核、再簽核中、最後已簽核
-      });
-
-      const fragment = document.createDocumentFragment();
-      data.forEach(r => {
-        const row = document.createElement("tr");
-
-        // 根據簽核狀態動態顯示顏色
-        let signStatusClass = '';
-        let signStatusText = r.signStatus || '未簽核';
-        if (signStatusText === '未簽核') signStatusClass = 'badge-未簽核';
-        else if (signStatusText === '簽核中') signStatusClass = 'badge-簽核中';
-        else if (signStatusText === '已簽核') signStatusClass = 'badge-已簽核';
-
-        row.innerHTML = `
-          <td>${r.userName}</td>
-          <td>${r.leaveType}</td>
-          <td>${r.leaveReason}</td>
-          <td>${formatDate(r.startDate)}</td>
-          <td>${formatTime(r.startTime)}</td>
-          <td>${formatDate(r.endDate)}</td>
-          <td>${formatTime(r.endTime)}</td>
-          <td>${r.leaveHours}</td>
-          <td><span class="${signStatusClass}">${signStatusText}</span></td> <!-- 顯示簽核狀態 -->
-        `;
-        fragment.appendChild(row);
-      });
-      tbody.innerHTML = "";
-      tbody.appendChild(fragment);
-
-    } catch (err) {
-      console.error("讀取請假紀錄失敗:", err);
-      tbody.innerHTML = "<tr><td colspan='9'>讀取失敗</td></tr>";
+  try {
+    const res = await fetch(API_ENDPOINT, {
+      method: "POST",
+      body: JSON.stringify({
+        action:"leave",
+        userId,
+        userName,
+        leaveType,
+        leaveReason,
+        startDate: leaveStartDate,
+        startTime: leaveStartTime,
+        endDate: leaveEndDate,
+        endTime: leaveEndTime,
+        leaveHours
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      Swal.fire({ icon:"success", title:data.message || "請假申請完成", timer:1500, showConfirmButton:false });
+      loadLeaveRecords();
+      Swal.close();
+    } else {
+      Swal.fire({ icon:"error", title:data.message || "請假申請失敗", timer:1500, showConfirmButton:false });
     }
+  } catch (err) {
+    console.error(err);
+    Swal.fire({ icon:"error", title:"請假申請失敗", timer:1500, showConfirmButton:false });
   }
+}
 
-  // 提交請假申請
-  async function submitLeave() {
-    const leaveType = document.getElementById("leaveType").value;
-    const leaveReason = document.getElementById("leaveReason").value;
-    const leaveStartDate = document.getElementById("leaveStartDate").value;
-    const leaveStartTime = document.getElementById("leaveStartTime").value;
-    const leaveEndDate = document.getElementById("leaveEndDate").value;
-    const leaveEndTime = document.getElementById("leaveEndTime").value;
-    const leaveHours = document.getElementById("leaveHours").value;
-
-    if (!leaveStartDate || !leaveStartTime || !leaveEndDate || !leaveEndTime || !leaveReason) {
-      return Swal.fire({ icon: "info", title: "請填完整資料", timer: 1500, showConfirmButton: false });
-    }
-
-    try {
-      const res = await fetch(API_ENDPOINT, {
-        method: "POST",
-        body: JSON.stringify({
-          action: "leave",
-          userId,
-          userName,
-          date: leaveStartDate,
-          startTime: leaveStartTime,
-          endTime: leaveEndTime,
-          leaveType,
-          leaveReason,
-          leaveHours
-        })
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        Swal.fire({ icon: "success", title: data.message || "請假申請完成", timer: 1500, showConfirmButton: false });
-
-        // 提交後重新載入請假紀錄
-        loadLeaveRecords();  // 重載請假紀錄表格
-
-      } else {
-        Swal.fire({ icon: "error", title: data.message || "請假申請失敗", timer: 1500, showConfirmButton: false });
-      }
-
-      // 重設表單
-      document.getElementById("leaveReason").value = "";
-      document.getElementById("leaveStartDate").value = "";
-      document.getElementById("leaveStartTime").value = "09:00";
-      document.getElementById("leaveEndDate").value = "";
-      document.getElementById("leaveEndTime").value = "18:00";
-      document.getElementById("leaveHours").value = "";
-
-    } catch (err) {
-      console.error("請假申請失敗:", err);
-      Swal.fire({ icon: "error", title: "請假申請失敗", timer: 1500, showConfirmButton: false });
-    }
+// 載入請假紀錄
+async function loadLeaveRecords() {
+  const tbody = document.getElementById("leaveRecordTable");
+  tbody.innerHTML = "<tr><td colspan='9'>載入中...</td></tr>";
+  try {
+    const res = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`);
+    const data = await res.json();
+    if (!data.length) { tbody.innerHTML = "<tr><td colspan='9'>無請假紀錄</td></tr>"; return; }
+    tbody.innerHTML = "";
+    data.forEach(r => {
+      const tr = document.createElement("tr");
+      let statusClass = r.signStatus==='未簽核'?'badge-未簽核':r.signStatus==='簽核中'?'badge-簽核中':'badge-已簽核';
+      tr.innerHTML = `
+        <td>${r.userName}</td>
+        <td>${r.leaveType}</td>
+        <td>${r.leaveReason}</td>
+        <td>${r.startDate}</td>
+        <td>${r.startTime}</td>
+        <td>${r.endDate}</td>
+        <td>${r.endTime}</td>
+        <td>${r.leaveHours}</td>
+        <td><span class="${statusClass}">${r.signStatus}</span></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (err) {
+    console.error(err);
+    tbody.innerHTML = "<tr><td colspan='9'>讀取失敗</td></tr>";
   }
+}
 
-  // 初始化 LIFF
-  window.onload = initLIFF;
+window.onload = initLIFF;
 </script>
-
 </body>
 </html>
