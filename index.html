@@ -103,84 +103,13 @@ async function loadLeaveRecords(){
 }
 
 // 申請請假按鈕
-document.getElementById("applyLeaveBtn").onclick = () => {
-  Swal.fire({
-    title: '📝 請假申請',
-    html: `
-      <div style="display:flex; flex-direction:column; gap:12px; font-size:1.1em;">
-        <div style="display:flex; flex-direction:column;">
-          <label style="font-weight:bold;">假別</label>
-          <select id="swLeaveType" style="width:100%; font-size:1.2em; padding:8px;">
-            <option>特休</option><option>事假</option><option>病假</option>
-            <option>公假</option><option>婚假</option><option>喪假</option><option>生理假</option>
-          </select>
-        </div>
-        <div style="display:flex; flex-direction:column;">
-          <label style="font-weight:bold;">事由</label>
-          <input id="swLeaveReason" type="text" style="width:100%; font-size:1.2em; padding:8px;">
-        </div>
-        <div style="display:flex; flex-wrap:wrap; gap:10px;">
-          <div style="flex:1 1 150px; display:flex; flex-direction:column;">
-            <label style="font-weight:bold;">起始日期</label>
-            <input type="date" id="swStartDate" style="width:100%; font-size:1.2em; padding:8px;">
-          </div>
-          <div style="flex:1 1 150px; display:flex; flex-direction:column;">
-            <label style="font-weight:bold;">起始時間</label>
-            <input type="time" id="swStartTime" value="09:00" style="width:100%; font-size:1.2em; padding:8px;">
-          </div>
-        </div>
-        <div style="display:flex; flex-wrap:wrap; gap:10px;">
-          <div style="flex:1 1 150px; display:flex; flex-direction:column;">
-            <label style="font-weight:bold;">終止日期</label>
-            <input type="date" id="swEndDate" style="width:100%; font-size:1.2em; padding:8px;">
-          </div>
-          <div style="flex:1 1 150px; display:flex; flex-direction:column;">
-            <label style="font-weight:bold;">終止時間</label>
-            <input type="time" id="swEndTime" value="18:00" style="width:100%; font-size:1.2em; padding:8px;">
-          </div>
-        </div>
-        <div style="display:flex; flex-direction:column;">
-          <label style="font-weight:bold;">請假時數</label>
-          <input type="number" id="swLeaveHours" style="width:100%; font-size:1.2em; padding:8px;" readonly>
-        </div>
-      </div>
-    `,
-    width: '90%',  // 手機寬度自動縮放
-    maxWidth: '600px',  // 桌面限制最大寬度
-    showCancelButton: true,
-    confirmButtonText: '送出',
-    cancelButtonText: '取消',
-    preConfirm: () => {
-      const type = document.getElementById("swLeaveType").value;
-      const reason = document.getElementById("swLeaveReason").value.trim();
-      const sD = document.getElementById("swStartDate").value;
-      const sT = document.getElementById("swStartTime").value;
-      const eD = document.getElementById("swEndDate").value;
-      const eT = document.getElementById("swEndTime").value;
-
-      if (!type || !reason || !sD || !sT || !eD || !eT) {
-        Swal.showValidationMessage("請填完整資料");
-        return false;
-      }
-
-      const start = new Date(`${sD}T${sT}:00`);
-      const end = new Date(`${eD}T${eT}:00`);
-
-      if (end <= start) {
-        Swal.showValidationMessage("結束時間須大於起始時間");
-        return false;
-      }
-
-      const hours = ((end - start) / 3600000).toFixed(2);
-      document.getElementById("swLeaveHours").value = hours;
-
-      return { type, reason, sD, sT, eD, eT, hours };
-    }
-  }).then(async (result) => {
+document.getElementById("btnLeaveApply").onclick = () => {
+  Swal.fire({ ... }).then(async (result) => {
     if (result.isConfirmed) {
       try {
-        const res = await fetch(API, {
+        const res = await fetch(API_ENDPOINT, {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: "leave",
             userId, userName,
