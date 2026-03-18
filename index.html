@@ -16,6 +16,14 @@
   .badge-未簽核{ background:#f44336;color:white;padding:3px 8px;border-radius:5px; }
   .badge-簽核中{ background:#ff9800;color:white;padding:3px 8px;border-radius:5px; }
   .badge-已簽核{ background:#4caf50;color:white;padding:3px 8px;border-radius:5px; }
+  .swal-title-lg {
+  font-size: 22px !important;
+}
+
+.swal-btn-lg {
+  font-size: 18px !important;
+  padding: 10px 20px !important;
+}
 </style>
 </head>
 <body>
@@ -104,42 +112,86 @@ async function loadLeaveRecords(){
 
 // 申請請假按鈕
 document.getElementById("btnLeaveApply").onclick=()=>{
+  document.getElementById("btnLeaveApply").onclick=()=>{
   Swal.fire({
     title:'📝 請假申請',
+    width:'130%', // ⭐ 加寬30%
     html:`
-      <div style="display:flex; flex-direction:column; gap:10px; text-align:left; font-size:16px;">
-        <label>假別</label>
-        <select id="leaveType" style="width:100%;padding:6px;border-radius:6px;border:1px solid #ccc;">
+      <div style="
+        display:flex;
+        flex-direction:column;
+        gap:16px;
+        text-align:left;
+        font-size:18px;
+      ">
+
+        <label style="font-weight:bold;">假別</label>
+        <select id="leaveType"
+          style="width:100%;padding:12px;font-size:18px;border-radius:8px;border:1px solid #ccc;">
           <option>特休</option><option>事假</option><option>病假</option>
           <option>公假</option><option>婚假</option><option>喪假</option><option>生理假</option>
         </select>
-        <label>事由</label>
-        <input type="text" id="leaveReason" style="width:100%;padding:6px;border-radius:6px;border:1px solid #ccc;" placeholder="請輸入請假事由">
-        <label>起始日期</label><input type="date" id="leaveStartDate" style="width:100%;padding:6px;border-radius:6px;border:1px solid #ccc;">
-        <label>起始時間</label><input type="time" id="leaveStartTime" style="width:100%;padding:6px;border-radius:6px;border:1px solid #ccc;" value="09:00">
-        <label>終止日期</label><input type="date" id="leaveEndDate" style="width:100%;padding:6px;border-radius:6px;border:1px solid #ccc;">
-        <label>終止時間</label><input type="time" id="leaveEndTime" style="width:100%;padding:6px;border-radius:6px;border:1px solid #ccc;" value="18:00">
-        <label>請假時數</label><input type="number" id="leaveHours" style="width:100%;padding:6px;border-radius:6px;border:1px solid #ccc;" readonly>
+
+        <label style="font-weight:bold;">事由</label>
+        <input type="text" id="leaveReason"
+          style="width:100%;padding:12px;font-size:18px;border-radius:8px;border:1px solid #ccc;"
+          placeholder="請輸入請假事由">
+
+        <label style="font-weight:bold;">起始日期</label>
+        <input type="date" id="leaveStartDate"
+          style="width:100%;padding:12px;font-size:18px;border-radius:8px;border:1px solid #ccc;">
+
+        <label style="font-weight:bold;">起始時間</label>
+        <input type="time" id="leaveStartTime"
+          style="width:100%;padding:12px;font-size:18px;border-radius:8px;border:1px solid #ccc;"
+          value="09:00">
+
+        <label style="font-weight:bold;">終止日期</label>
+        <input type="date" id="leaveEndDate"
+          style="width:100%;padding:12px;font-size:18px;border-radius:8px;border:1px solid #ccc;">
+
+        <label style="font-weight:bold;">終止時間</label>
+        <input type="time" id="leaveEndTime"
+          style="width:100%;padding:12px;font-size:18px;border-radius:8px;border:1px solid #ccc;"
+          value="18:00">
+
+        <label style="font-weight:bold;">請假時數</label>
+        <input type="number" id="leaveHours"
+          style="width:100%;padding:12px;font-size:18px;border-radius:8px;border:1px solid #ccc;background:#f5f5f5;"
+          readonly>
       </div>
     `,
     showCancelButton:true,
     confirmButtonText:'送出',
     cancelButtonText:'取消',
+    confirmButtonColor:'#4caf50',
+    cancelButtonColor:'#999',
+    customClass:{
+      title:'swal-title-lg',
+      confirmButton:'swal-btn-lg',
+      cancelButton:'swal-btn-lg'
+    },
+
     didOpen:()=>{
       const startDateEl=document.getElementById("leaveStartDate");
       const startTimeEl=document.getElementById("leaveStartTime");
       const endDateEl=document.getElementById("leaveEndDate");
       const endTimeEl=document.getElementById("leaveEndTime");
       const leaveHoursEl=document.getElementById("leaveHours");
+
       function calcHours(){
         if(!startDateEl.value||!startTimeEl.value||!endDateEl.value||!endTimeEl.value) return;
         const start=new Date(`${startDateEl.value}T${startTimeEl.value}:00`);
         const end=new Date(`${endDateEl.value}T${endTimeEl.value}:00`);
         leaveHoursEl.value = ((end-start)/(1000*60*60)).toFixed(2);
       }
-      [startDateEl,startTimeEl,endDateEl,endTimeEl].forEach(el=>el.addEventListener("change",calcHours));
+
+      [startDateEl,startTimeEl,endDateEl,endTimeEl]
+        .forEach(el=>el.addEventListener("change",calcHours));
+
       calcHours();
     },
+
     preConfirm:()=>{
       const leaveType=document.getElementById("leaveType").value;
       const leaveReason=document.getElementById("leaveReason").value.trim();
@@ -148,39 +200,68 @@ document.getElementById("btnLeaveApply").onclick=()=>{
       const leaveEndDate=document.getElementById("leaveEndDate").value;
       const leaveEndTime=document.getElementById("leaveEndTime").value;
       const leaveHours=document.getElementById("leaveHours").value;
+
       if(!leaveReason||!leaveStartDate||!leaveStartTime||!leaveEndDate||!leaveEndTime){
-        Swal.showValidationMessage("請填完整資料"); return false;
+        Swal.showValidationMessage("請填完整資料");
+        return false;
       }
+
       if(new Date(`${leaveStartDate}T${leaveStartTime}:00`)>=new Date(`${leaveEndDate}T${leaveEndTime}:00`)){
-        Swal.showValidationMessage("結束時間必須大於開始時間"); return false;
+        Swal.showValidationMessage("結束時間必須大於開始時間");
+        return false;
       }
+
       return {leaveType,leaveReason,leaveStartDate,leaveStartTime,leaveEndDate,leaveEndTime,leaveHours};
     }
+
   }).then(async(result)=>{
     if(!result.isConfirmed) return;
+
     const data=result.value;
+
     try{
-      const res=await fetch(API_ENDPOINT,{method:"POST",body:JSON.stringify({
-        action:"leave",
-        userId,userName,
-        leaveType:data.leaveType,
-        leaveReason:data.leaveReason,
-        startDate:data.leaveStartDate,
-        startTime:data.leaveStartTime,
-        endDate:data.leaveEndDate,
-        endTime:data.leaveEndTime,
-        leaveHours:data.leaveHours
-      })});
+      const res=await fetch(API_ENDPOINT,{
+        method:"POST",
+        body:JSON.stringify({
+          action:"leave",
+          userId,userName,
+          leaveType:data.leaveType,
+          leaveReason:data.leaveReason,
+          startDate:data.leaveStartDate,
+          startTime:data.leaveStartTime,
+          endDate:data.leaveEndDate,
+          endTime:data.leaveEndTime,
+          leaveHours:data.leaveHours
+        })
+      });
+
       const json=await res.json();
+
       if(json.success){
-        Swal.fire({icon:"success",title:json.message||"請假申請完成",timer:1500,showConfirmButton:false});
+        Swal.fire({
+          icon:"success",
+          title:"請假申請完成",
+          timer:1500,
+          showConfirmButton:false
+        });
         loadLeaveRecords();
       }else{
-        Swal.fire({icon:"error",title:json.message||"請假申請失敗",timer:1500,showConfirmButton:false});
+        Swal.fire({
+          icon:"error",
+          title:"請假申請失敗",
+          timer:1500,
+          showConfirmButton:false
+        });
       }
+
     }catch(err){
       console.error(err);
-      Swal.fire({icon:"error",title:"請假申請失敗",timer:1500,showConfirmButton:false});
+      Swal.fire({
+        icon:"error",
+        title:"請假申請失敗",
+        timer:1500,
+        showConfirmButton:false
+      });
     }
   });
 };
