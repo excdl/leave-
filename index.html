@@ -17,10 +17,7 @@ th{background:#f7f7f7;font-weight:bold;}
 .badge-簽核中{background:#ff9800;color:white;padding:4px 10px;border-radius:6px;}
 .badge-已簽核{background:#4caf50;color:white;padding:4px 10px;border-radius:6px;}
 .swal-btn{font-size:18px !important;padding:12px 24px !important;border-radius:10px !important;}
-input, select, textarea {
-  font-size: 18px;
-  -webkit-text-size-adjust: 100%; /* 防手機自動放大 */
-}
+input, select, textarea { font-size: 18px; -webkit-text-size-adjust: 100%; }
 </style>
 </head>
 <body>
@@ -40,15 +37,11 @@ input, select, textarea {
 const API_ENDPOINT="https://script.google.com/macros/s/AKfycbwiL24GmSd4V-KYxcNStyXqor589NUqBHhQskjAFhqUMZ6-Bza9i-hwLXSwQTUAHkhT/exec";
 let userId="", userName="", remainHours=0;
 
-function normalizeTime(t){
-  if(!t) return "00:00";
-  const parts = t.split(":").map(p=>p.padStart(2,"0"));
-  return parts[0]+":"+parts[1];
-}
+function normalizeTime(t){ if(!t) return "00:00"; const parts=t.split(":").map(p=>p.padStart(2,"0")); return parts[0]+":"+parts[1]; }
 
 async function getRealtimeRemainHours(){
-  const res = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`);
-  const records = await res.json();
+  const leaveRes = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`);
+  const records = await leaveRes.json();
   let usedSigned=0, usedPending=0;
   records.forEach(r=>{
     if(r.leaveType==="特休"){
@@ -56,9 +49,9 @@ async function getRealtimeRemainHours(){
       else usedPending += parseFloat(r.leaveHours||0);
     }
   });
-  const empInfoRes = await fetch(`${API_ENDPOINT}?action=getUserInfo&userId=${userId}`);
-  const empInfo = await empInfoRes.json();
-  return (empInfo.total||0)-usedSigned-usedPending;
+  const empRes = await fetch(`${API_ENDPOINT}?action=getUserInfo&userId=${userId}`);
+  const empInfo = await empRes.json();
+  return (empInfo.total || 0) - usedSigned - usedPending;
 }
 
 async function initLIFF(){
@@ -73,13 +66,13 @@ async function initLIFF(){
 }
 
 async function loadAnnualInfo(){
-  const res=await fetch(`${API_ENDPOINT}?action=getUserInfo&userId=${userId}`);
-  const empInfo=await res.json();
+  const res = await fetch(`${API_ENDPOINT}?action=getUserInfo&userId=${userId}`);
+  const empInfo = await res.json();
   const leaveRes = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`);
   const records = await leaveRes.json();
   let usedSigned=0;
-  records.forEach(r=>{ if(r.leaveType==="特休" && r.signStatus==="已簽核") usedSigned+=parseFloat(r.leaveHours||0); });
-  const remain = (empInfo.total||0)-usedSigned;
+  records.forEach(r=>{ if(r.leaveType==="特休" && r.signStatus==="已簽核") usedSigned += parseFloat(r.leaveHours||0); });
+  const remain = (empInfo.total || 0) - usedSigned;
   remainHours = remain;
   document.getElementById("annualInfo").innerHTML=
     `累計年假：<b>${empInfo.total}</b> 小時 已休：<b>${usedSigned}</b> 小時 剩餘：<b style="color:${remain<=0?'red':'green'}">${remain}</b> 小時`;
@@ -120,7 +113,7 @@ document.getElementById("btnLeaveApply").onclick=async ()=>{
   const typesRes = await fetch(`${API_ENDPOINT}?action=getLeaveTypes`);
   const types = await typesRes.json();
   const optionsHTML = types.map(t=>`<option value="${t}">${t}</option>`).join("");
-  
+
   Swal.fire({
     title:'📝 請假申請', width:520,
     html:`<div style="display:flex;flex-direction:column;gap:16px;font-size:18px;text-align:left;">
@@ -136,29 +129,43 @@ document.getElementById("btnLeaveApply").onclick=async ()=>{
     showCancelButton:true, confirmButtonText:'送出', cancelButtonText:'取消',
     customClass:{confirmButton:'swal-btn', cancelButton:'swal-btn'},
     didOpen:()=>{
-      const sD=document.getElementById("leaveStartDate"), sT=document.getElementById("leaveStartTime"), eD=document.getElementById("leaveEndDate"), eT=document.getElementById("leaveEndTime"), lH=document.getElementById("leaveHours");
-      [sD,sT,eD,eT].forEach(el=>el.addEventListener("change",calc));
-      function calc(){
+      const sD=document.getElementById("leaveStartDate"),
+            sT=document.getElementById("leaveStartTime"),
+            eD=document.getElementById("leaveEndDate"),
+            eT=document.getElementById("leaveEndTime"),
+            lH=document.getElementById("leaveHours"),
+            lType=document.getElementById("leaveType"),
+            rDisp=document.getElementById("remainDisplay");
+
+      sD.addEventListener("change",()=>{ eD.value=sD.value; calc(); });
+      [sD,sT,eD,eT,lType].forEach(el=>el.addEventListener("change",calc));
+
+      async function calc(){
         if(!sD.value||!sT.value||!eD.value||!eT.value) return;
-        let h=(new Date(`${eD.value}T${eT.value}`)-new Date(`${sD.value}T${sT.value}`))/3600000;
-        if(h<0){ Swal.showValidationMessage("終止日期不可早於起始日期"); lH.value=0; return; }
-        lH.value=h.toFixed(2);
+        const startTime=new Date(`${sD.value}T${sT.value}`);
+        const endTime=new Date(`${eD.value}T${eT.value}`);
+        if(endTime < startTime){ Swal.showValidationMessage("終止日期不可早於起始日期"); lH.value=0; return; }
+        let hours = (endTime - startTime)/3600000;
+        if(lType.value==="特休"){
+          const realtimeRemain = await getRealtimeRemainHours();
+          if(hours>realtimeRemain){ Swal.showValidationMessage("❌ 請假時數超過剩餘特休"); hours=0; } else { Swal.resetValidationMessage(); }
+          rDisp.textContent=`剩餘特休: ${Math.max(0,(realtimeRemain-hours)).toFixed(2)} 小時`;
+        } else { Swal.resetValidationMessage(); rDisp.textContent=""; }
+        lH.value=hours.toFixed(2);
       }
       calc();
     },
     preConfirm: async ()=>{
-      const lh=parseFloat(document.getElementById("leaveHours").value);
-      const lType=document.getElementById("leaveType").value;
-      const leaveReason=document.getElementById("leaveReason").value;
-      const sD=document.getElementById("leaveStartDate").value;
-      const sT=document.getElementById("leaveStartTime").value;
-      const eD=document.getElementById("leaveEndDate").value;
-      const eT=document.getElementById("leaveEndTime").value;
+      const lh=parseFloat(document.getElementById("leaveHours").value),
+            lType=document.getElementById("leaveType").value,
+            leaveReason=document.getElementById("leaveReason").value,
+            sD=document.getElementById("leaveStartDate").value,
+            sT=document.getElementById("leaveStartTime").value,
+            eD=document.getElementById("leaveEndDate").value,
+            eT=document.getElementById("leaveEndTime").value;
 
       if(!leaveReason||!sD||!eD){ Swal.showValidationMessage("請填完整資料"); return false; }
-
-      const isDup = await checkDuplicateLeave(sD, sT, eD, eT);
-      if(isDup){ Swal.showValidationMessage("❌ 已有相同時間的請假紀錄"); return false; }
+      if(await checkDuplicateLeave(sD,sT,eD,eT)){ Swal.showValidationMessage("❌ 已有相同時間的請假紀錄"); return false; }
 
       if(lType==="特休"){
         const realtimeRemain = await getRealtimeRemainHours();
