@@ -15,6 +15,7 @@
   }
 
   h2{ margin-bottom:10px; }
+  h3{ margin-bottom:15px; color:#333; }
 
   button{
     padding:12px 24px;
@@ -56,9 +57,7 @@
 <body>
 
 <h2 id="userInfo">載入中...</h2>
-
-<!-- ✅ 新增：年假資訊 -->
-<h3 id="annualInfo" style="margin-bottom:15px;color:#333;"></h3>
+<h3 id="annualInfo">載入年假中...</h3>
 
 <button id="btnLeaveApply" class="btn-success">申請請假</button>
 
@@ -77,9 +76,10 @@
 </table>
 
 <script>
-const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbzWJlM7_3mbhzuc7WHZ2xXroIIOpTtRYmLdi7o7rzHiHVC2trNnV_qsjdWTfAGWHfsy/exec";
+const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbyU8Qjb-aNaQb7eSgJYkSFTcOjNHF8jSuMe6RY-3uXIoFIgXN_KbkrJ94u_Y2ULQFRK/exec";
 
 let userId = "", userName = "";
+let remainHours = 0; // 剩餘特休時數
 
 // ===== LIFF 初始化 =====
 async function initLIFF(){
@@ -93,7 +93,7 @@ async function initLIFF(){
 
     document.getElementById("userInfo").textContent = `${userName} 您好`;
 
-    await loadAnnualInfo(); // ✅ 年假
+    await loadAnnualInfo(); // 年假
     loadLeaveRecords();
 
   }catch(err){
@@ -108,10 +108,12 @@ async function loadAnnualInfo(){
     const res = await fetch(`${API_ENDPOINT}?action=getUserInfo&userId=${userId}`);
     const d = await res.json();
 
+    remainHours = d.remain || 0;
+
     document.getElementById("annualInfo").innerHTML =
       `累計年假：<b>${d.total}</b> 小時　
        已休：<b>${d.used}</b> 小時　
-       剩餘：<b style="color:${d.remain<=0?'red':'green'}">${d.remain}</b> 小時`;
+       剩餘：<b style="color:${remainHours<=0?'red':'green'}">${remainHours}</b> 小時`;
   }catch(err){
     console.error(err);
   }
@@ -171,11 +173,10 @@ async function loadLeaveRecords(){
   }
 }
 
-// ===== 請假 =====
+// ===== 請假申請 =====
 document.getElementById("btnLeaveApply").onclick=async ()=>{
 
-  const types = await loadLeaveTypes(); // ✅ 動態假別
-
+  const types = await loadLeaveTypes(); 
   const optionsHTML = types.map(t=>`<option value="${t}">${t}</option>`).join("");
 
   Swal.fire({
@@ -211,6 +212,7 @@ document.getElementById("btnLeaveApply").onclick=async ()=>{
         <label>請假時數</label>
         <input id="leaveHours" readonly
           style="padding:14px;font-size:20px;font-weight:bold;background:#eee;border-radius:10px;">
+        <div id="remainDisplay" style="margin-top:6px;">剩餘特休: ${remainHours} 小時</div>
       </div>
     `,
 
@@ -225,16 +227,37 @@ document.getElementById("btnLeaveApply").onclick=async ()=>{
 
     didOpen:()=>{
       const sD=leaveStartDate, sT=leaveStartTime, eD=leaveEndDate, eT=leaveEndTime;
+      const lH=leaveHours, lType=leaveType, rDisp=document.getElementById("remainDisplay");
 
       function calc(){
         if(!sD.value||!sT.value||!eD.value||!eT.value) return;
-        leaveHours.value = ((new Date(`${eD.value}T${eT.value}`) - new Date(`${sD.value}T${sT.value}`)) / 3600000).toFixed(2);
+        let h = (new Date(`${eD.value}T${eT.value}`)-new Date(`${sD.value}T${sT.value}`))/3600000;
+        if(h<0) h=0;
+        lH.value = h.toFixed(2);
+
+        if(lType.value==="特休"){
+          rDisp.textContent = `剩餘特休: ${Math.max(0,(remainHours-h)).toFixed(2)} 小時`;
+          if(h > remainHours){
+            Swal.showValidationMessage("剩餘特休不足");
+          }
+        } else {
+          rDisp.textContent = "";
+        }
       }
 
-      [sD,sT,eD,eT].forEach(el=>el.addEventListener("change",calc));
+      [sD,sT,eD,eT,lType].forEach(el=>el.addEventListener("change",calc));
+
+      // 初始計算
+      calc();
     },
 
     preConfirm:()=>{
+      const lh=parseFloat(leaveHours.value);
+      if(leaveType.value==="特休" && lh > remainHours){
+        Swal.showValidationMessage(`剩餘特休不足`);
+        return false;
+      }
+
       if(!leaveReason.value || !leaveStartDate.value || !leaveEndDate.value){
         Swal.showValidationMessage("請填完整資料");
         return false;
@@ -252,18 +275,13 @@ document.getElementById("btnLeaveApply").onclick=async ()=>{
     }
 
   }).then(async(res)=>{
-
     if(!res.isConfirmed) return;
 
     const d=res.value;
 
     const response = await fetch(API_ENDPOINT,{
       method:"POST",
-      body:JSON.stringify({
-        action:"leave",
-        userId,userName,
-        ...d
-      })
+      body:JSON.stringify({ action:"leave", userId,userName, ...d })
     });
 
     const result = await response.json();
@@ -273,9 +291,15 @@ document.getElementById("btnLeaveApply").onclick=async ()=>{
       return;
     }
 
+    // 前端即時扣除剩餘
+    if(d.leaveType==="特休"){
+      remainHours -= parseFloat(d.leaveHours);
+      remainHours = Math.max(0, remainHours);
+    }
+
     Swal.fire({icon:"success",title:"完成",timer:1200,showConfirmButton:false});
 
-    await loadAnnualInfo(); // ✅ 更新年假
+    await loadAnnualInfo(); // 更新年假
     loadLeaveRecords();
   });
 };
