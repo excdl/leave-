@@ -115,44 +115,79 @@ document.getElementById("btnLeaveApply").onclick=async ()=>{
   const optionsHTML = types.map(t=>`<option value="${t}">${t}</option>`).join("");
 
   Swal.fire({
-    title:'📝 請假申請', width:520,
-    html:`<div style="display:flex;flex-direction:column;gap:16px;font-size:18px;text-align:left;">
-      <label>假別</label><select id="leaveType" style="padding:14px;font-size:18px;border-radius:10px;">${optionsHTML}</select>
-      <label>事由</label><input id="leaveReason" placeholder="請輸入請假事由" style="padding:14px;font-size:18px;border-radius:10px;-webkit-text-size-adjust:100%;">
-      <label>起始日期</label><input type="date" id="leaveStartDate" style="padding:14px;font-size:18px;border-radius:10px;">
-      <label>起始時間</label><input type="time" id="leaveStartTime" value="09:00" style="padding:14px;font-size:18px;border-radius:10px;">
-      <label>終止日期</label><input type="date" id="leaveEndDate" style="padding:14px;font-size:18px;border-radius:10px;">
-      <label>終止時間</label><input type="time" id="leaveEndTime" value="18:00" style="padding:14px;font-size:18px;border-radius:10px;">
-      <label>請假時數</label><input id="leaveHours" readonly style="padding:14px;font-size:20px;font-weight:bold;background:#eee;border-radius:10px;">
-      <div id="remainDisplay" style="margin-top:6px;">剩餘特休: ${remainHours} 小時</div>
-    </div>`,
-    showCancelButton:true, confirmButtonText:'送出', cancelButtonText:'取消',
-    customClass:{confirmButton:'swal-btn', cancelButton:'swal-btn'},
-    didOpen:()=>{
-      const sD=document.getElementById("leaveStartDate"),
-            sT=document.getElementById("leaveStartTime"),
-            eD=document.getElementById("leaveEndDate"),
-            eT=document.getElementById("leaveEndTime"),
-            lH=document.getElementById("leaveHours"),
-            lType=document.getElementById("leaveType"),
-            rDisp=document.getElementById("remainDisplay");
+  title:'📝 請假申請',
+  width:780,
+  html:`<div style="display:flex;flex-direction:column;gap:20px;font-size:27px;text-align:left;">
+    <label>假別</label>
+    <select id="leaveType" style="padding:20px;font-size:24px;border-radius:12px;">${optionsHTML}</select>
 
-      sD.addEventListener("change",()=>{ eD.value=sD.value; calc(); });
-      [sD,sT,eD,eT,lType].forEach(el=>el.addEventListener("change",calc));
+    <label>事由（可不填）</label>
+    <input id="leaveReason" placeholder="請輸入請假事由" style="padding:20px;font-size:24px;border-radius:12px;">
 
-      async function calc(){
-        if(!sD.value||!sT.value||!eD.value||!eT.value) return;
-        const startTime=new Date(`${sD.value}T${sT.value}`);
-        const endTime=new Date(`${eD.value}T${eT.value}`);
-        if(endTime < startTime){ Swal.showValidationMessage("終止日期不可早於起始日期"); lH.value=0; return; }
-        let hours = (endTime - startTime)/3600000;
-        if(lType.value==="特休"){
-          const realtimeRemain = await getRealtimeRemainHours();
-          if(hours>realtimeRemain){ Swal.showValidationMessage("❌ 請假時數超過剩餘特休"); hours=0; } else { Swal.resetValidationMessage(); }
-          rDisp.textContent=`剩餘特休: ${Math.max(0,(realtimeRemain-hours)).toFixed(2)} 小時`;
-        } else { Swal.resetValidationMessage(); rDisp.textContent=""; }
-        lH.value=hours.toFixed(2);
+    <label>起始日期</label>
+    <input type="date" id="leaveStartDate" style="padding:20px;font-size:24px;border-radius:12px;">
+
+    <label>起始時間</label>
+    <input type="time" id="leaveStartTime" value="09:00" style="padding:20px;font-size:24px;border-radius:12px;">
+
+    <label>終止日期</label>
+    <input type="date" id="leaveEndDate" style="padding:20px;font-size:24px;border-radius:12px;">
+
+    <label>終止時間</label>
+    <input type="time" id="leaveEndTime" value="18:00" style="padding:20px;font-size:24px;border-radius:12px;">
+
+    <label>請假時數</label>
+    <input id="leaveHours" readonly style="padding:20px;font-size:26px;font-weight:bold;background:#eee;border-radius:12px;">
+
+    <div id="remainDisplay" style="margin-top:10px;">剩餘特休: ${remainHours} 小時</div>
+  </div>`,
+  showCancelButton:true,
+  confirmButtonText:'送出',
+  cancelButtonText:'取消',
+  customClass:{
+    confirmButton:'swal-btn',
+    cancelButton:'swal-btn'
+  },
+  didOpen:()=>{ /* 原本邏輯可保留 */ },
+  preConfirm: async ()=>{
+    const lh=parseFloat(document.getElementById("leaveHours").value),
+          lType=document.getElementById("leaveType").value,
+          leaveReason=document.getElementById("leaveReason").value,
+          sD=document.getElementById("leaveStartDate").value,
+          sT=document.getElementById("leaveStartTime").value,
+          eD=document.getElementById("leaveEndDate").value,
+          eT=document.getElementById("leaveEndTime").value;
+
+    // ✅ 只檢查必要欄位（事由不再必填）
+    if(!sD||!eD){
+      Swal.showValidationMessage("請填完整資料");
+      return false;
+    }
+
+    if(await checkDuplicateLeave(sD,sT,eD,eT)){
+      Swal.showValidationMessage("❌ 已有相同時間的請假紀錄");
+      return false;
+    }
+
+    if(lType==="特休"){
+      const realtimeRemain = await getRealtimeRemainHours();
+      if(lh>realtimeRemain){
+        Swal.showValidationMessage("❌ 特休假已超時");
+        return false;
       }
+    }
+
+    return {
+      leaveType:lType,
+      leaveReason, // 可為空
+      startDate:sD,
+      startTime:sT,
+      endDate:eD,
+      endTime:eT,
+      leaveHours:lh
+    };
+  }
+})
       calc();
     },
     preConfirm: async ()=>{
@@ -164,7 +199,7 @@ document.getElementById("btnLeaveApply").onclick=async ()=>{
             eD=document.getElementById("leaveEndDate").value,
             eT=document.getElementById("leaveEndTime").value;
 
-      if(!leaveReason||!sD||!eD){ Swal.showValidationMessage("請填完整資料"); return false; }
+      if(!sD||!eD){ Swal.showValidationMessage("請填完整資料"); return false; }
       if(await checkDuplicateLeave(sD,sT,eD,eT)){ Swal.showValidationMessage("❌ 已有相同時間的請假紀錄"); return false; }
 
       if(lType==="特休"){
