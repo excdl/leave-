@@ -33,17 +33,14 @@ th{background:#f7f7f7;font-weight:bold;}
 </table>
 
 <script>
-const API_ENDPOINT="https://script.google.com/macros/s/AKfycbxjr89R1QsfmeI99wtZKL6gEtr3rhvpDzHt0yeb8fOZKiqmNgkb5rUJUFKb7edJbpm7/exec";
+const API_ENDPOINT="https://script.google.com/macros/s/AKfycbxpUfZJb8rUPFCZbQdfcnFIanYcbALP6xpjFAkCXrp8DZh3QFfnUJ0zqsak_suifwFt/exec";
 let userId="", userName="", remainHours=0;
 
-// ===== 時間格式統一 HH:mm =====
+// 統一時間 HH:mm
 function normalizeTime(t){
   if(!t) return "00:00";
-  if(typeof t==="string"){
-    const parts = t.split(":").map(p=>p.padStart(2,"0"));
-    return parts[0]+":"+parts[1];
-  }
-  return new Date(t).toLocaleTimeString('zh-TW',{hour12:false,hour:'2-digit',minute:'2-digit'});
+  const parts = t.split(":").map(p=>p.padStart(2,"0"));
+  return parts[0]+":"+parts[1];
 }
 
 async function initLIFF(){
@@ -81,22 +78,19 @@ async function loadLeaveRecords(){
   }catch(e){ console.error(e); tbody.innerHTML="<tr><td colspan='9'>讀取失敗</td></tr>"; }
 }
 
-// ===== 前端重複檢查 =====
-async function checkDuplicateLeave(startDate, startTime, endDate, endTime) {
+// 前端重複檢查
+async function checkDuplicateLeave(sD, sT, eD, eT) {
   try {
     const res = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`);
     const records = await res.json();
-    const newStart = `${startDate} ${normalizeTime(startTime)}`;
-    const newEnd = `${endDate} ${normalizeTime(endTime)}`;
+    const newStart = `${sD} ${normalizeTime(sT)}`;
+    const newEnd = `${eD} ${normalizeTime(eT)}`;
     return records.some(r => {
       const existingStart = `${r.startDate} ${normalizeTime(r.startTime)}`;
       const existingEnd   = `${r.endDate} ${normalizeTime(r.endTime)}`;
       return newStart === existingStart && newEnd === existingEnd;
     });
-  } catch(e) {
-    console.error("檢查重複請假失敗", e);
-    return false;
-  }
+  } catch(e) { console.error(e); return false; }
 }
 
 document.getElementById("btnLeaveApply").onclick=async ()=>{
@@ -140,19 +134,10 @@ document.getElementById("btnLeaveApply").onclick=async ()=>{
       if(lType==="特休" && lh>remainHours){ Swal.showValidationMessage("剩餘特休不足"); return false; }
       if(!leaveReason||!sD||!eD){ Swal.showValidationMessage("請填完整資料"); return false; }
 
-      // 前端重複檢查
       const isDup = await checkDuplicateLeave(sD, sT, eD, eT);
       if(isDup){ Swal.showValidationMessage("❌ 已有相同時間的請假紀錄"); return false; }
 
-      return {
-        leaveType:lType,
-        leaveReason,
-        startDate:sD,
-        startTime:sT,
-        endDate:eD,
-        endTime:eT,
-        leaveHours:lh
-      };
+      return { leaveType:lType, leaveReason, startDate:sD, startTime:sT, endDate:eD, endTime:eT, leaveHours:lh };
     }
   }).then(async(res)=>{
     if(!res.isConfirmed) return;
