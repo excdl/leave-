@@ -2,6 +2,10 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
+
+<!-- ✅ 手機不亂放大 -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
 <title>專業請假系統</title>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -14,7 +18,13 @@
     padding:15px;
   }
 
-  h2{ margin-bottom:20px; }
+  h2{ margin-bottom:10px; }
+
+  #leaveInfo{
+    margin-bottom:15px;
+    font-size:16px;
+    color:#333;
+  }
 
   button{
     padding:12px 24px;
@@ -45,7 +55,6 @@
   .badge-簽核中{ background:#ff9800;color:white;padding:4px 10px;border-radius:6px; }
   .badge-已簽核{ background:#4caf50;color:white;padding:4px 10px;border-radius:6px; }
 
-  /* ✅ Swal 按鈕放大 */
   .swal-btn {
     font-size:18px !important;
     padding:12px 24px !important;
@@ -57,6 +66,10 @@
 <body>
 
 <h2 id="userInfo">載入中...</h2>
+
+<!-- ✅ 新增年假資訊 -->
+<div id="leaveInfo"></div>
+
 <button id="btnLeaveApply" class="btn-success">申請請假</button>
 
 <table>
@@ -77,8 +90,11 @@
 const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbxXzRP7xgyLpsAEqi9pejKjH0hI1I9vLuytiyIe5r4DGYU5sRPMeIKuE_FQZJ0QGjMm/exec";
 
 let userId = "", userName = "";
+let leaveTypes = [];
 
-// LIFF 初始化
+// =====================
+// 初始化
+// =====================
 async function initLIFF(){
   try{
     await liff.init({ liffId:"2009444587-t79pfL2A" });
@@ -90,6 +106,8 @@ async function initLIFF(){
 
     document.getElementById("userInfo").textContent = `${userName} 您好`;
 
+    await loadLeaveTypes();
+    await loadLeaveInfo();
     loadLeaveRecords();
 
   }catch(err){
@@ -98,7 +116,31 @@ async function initLIFF(){
   }
 }
 
-// 載入請假紀錄
+// =====================
+// 取得假別
+// =====================
+async function loadLeaveTypes(){
+  const res = await fetch(`${API_ENDPOINT}?action=getLeaveTypes`);
+  leaveTypes = await res.json();
+}
+
+// =====================
+// 年假資訊
+// =====================
+async function loadLeaveInfo(){
+  const res = await fetch(`${API_ENDPOINT}?action=getUserLeaveInfo&userId=${userId}`);
+  const d = await res.json();
+
+  document.getElementById("leaveInfo").innerHTML = `
+    📊 累計：${d.total} 小時　
+    剩餘：${d.remain} 小時　
+    已休：${d.used} 小時
+  `;
+}
+
+// =====================
+// 載入紀錄
+// =====================
 async function loadLeaveRecords(){
   const tbody = document.getElementById("leaveRecordTable");
   tbody.innerHTML = "<tr><td colspan='9'>載入中...</td></tr>";
@@ -146,8 +188,15 @@ async function loadLeaveRecords(){
   }
 }
 
-// ✅ 請假彈窗（優化版）
-document.getElementById("btnLeaveApply").onclick=()=>{
+// =====================
+// 請假彈窗（升級版）
+// =====================
+document.getElementById("btnLeaveApply").onclick=async()=>{
+
+  const infoRes = await fetch(`${API_ENDPOINT}?action=getUserLeaveInfo&userId=${userId}`);
+  const info = await infoRes.json();
+
+  const optionsHTML = leaveTypes.map(t=>`<option>${t}</option>`).join("");
 
   Swal.fire({
     title:'📝 請假申請',
@@ -156,33 +205,30 @@ document.getElementById("btnLeaveApply").onclick=()=>{
     html:`
       <div style="display:flex;flex-direction:column;gap:16px;font-size:18px;text-align:left;">
 
+        <div style="color:#4caf50;font-weight:bold;">
+          剩餘年假：${info.remain} 小時
+        </div>
+
         <label>假別</label>
-        <select id="leaveType" style="padding:14px;font-size:18px;border-radius:10px;">
-          <option>特休</option><option>事假</option><option>病假</option>
-          <option>公假</option><option>婚假</option><option>喪假</option><option>生理假</option>
-        </select>
+        <select id="leaveType">${optionsHTML}</select>
 
         <label>事由</label>
-        <input id="leaveReason" placeholder="請輸入請假事由"
-          style="padding:14px;font-size:18px;border-radius:10px;">
+        <input id="leaveReason">
 
         <label>起始日期</label>
-        <input type="date" id="leaveStartDate" style="padding:14px;font-size:18px;border-radius:10px;">
+        <input type="date" id="leaveStartDate">
 
         <label>起始時間</label>
-        <input type="time" id="leaveStartTime" value="09:00"
-          style="padding:14px;font-size:18px;border-radius:10px;">
+        <input type="time" id="leaveStartTime" value="09:00">
 
         <label>終止日期</label>
-        <input type="date" id="leaveEndDate" style="padding:14px;font-size:18px;border-radius:10px;">
+        <input type="date" id="leaveEndDate">
 
         <label>終止時間</label>
-        <input type="time" id="leaveEndTime" value="18:00"
-          style="padding:14px;font-size:18px;border-radius:10px;">
+        <input type="time" id="leaveEndTime" value="18:00">
 
         <label>請假時數</label>
-        <input id="leaveHours" readonly
-          style="padding:14px;font-size:20px;font-weight:bold;background:#eee;border-radius:10px;">
+        <input id="leaveHours" readonly>
       </div>
     `,
 
@@ -212,6 +258,12 @@ document.getElementById("btnLeaveApply").onclick=()=>{
         return false;
       }
 
+      // 🔥 年假限制
+      if(leaveType.value==="特休" && Number(leaveHours.value) > info.remain){
+        Swal.showValidationMessage(`剩餘 ${info.remain} 小時`);
+        return false;
+      }
+
       return {
         leaveType:leaveType.value,
         leaveReason:leaveReason.value,
@@ -227,21 +279,25 @@ document.getElementById("btnLeaveApply").onclick=()=>{
 
     if(!res.isConfirmed) return;
 
-    const d=res.value;
-
     await fetch(API_ENDPOINT,{
       method:"POST",
       body:JSON.stringify({
-        action:"leave",
         userId,userName,
-        ...d
+        ...res.value
       })
     });
 
     Swal.fire({icon:"success",title:"完成",timer:1200,showConfirmButton:false});
+
     loadLeaveRecords();
+    loadLeaveInfo(); // 🔥 更新年假
   });
 };
+
+// ✅ 收鍵盤恢復畫面
+document.addEventListener("focusout", () => {
+  window.scrollTo(0, 0);
+});
 
 window.onload=initLIFF;
 </script>
