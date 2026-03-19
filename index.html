@@ -122,7 +122,7 @@ async function loadLeaveTypes(){
 async function loadLeaveInfo(){
   const res=await fetch(`${API_ENDPOINT}?action=getUserLeaveInfo&userId=${userId}`);
   const d=await res.json();
-  leaveInfo.innerHTML=`📊 累計年假：${d.total}　剩餘年假：${d.remain}　已休年假：${d.used}`;
+  leaveInfo.innerHTML=`📊 年假記錄:累計：${d.total}　剩餘：${d.remain}　已休：${d.used}`;
 }
 
 /* 紀錄 */
@@ -191,7 +191,7 @@ btnLeaveApply.onclick=async()=>{
     width:520,
     html:`
     <div style="display:flex;flex-direction:column;gap:16px;font-size:18px;text-align:left;">
-      <div style="color:#4caf50;font-weight:bold;">剩餘：${info.remain}</div>
+      <div style="color:#4caf50;font-weight:bold;">剩餘年假時數：${info.remain}</div>
 
       <button type="button" id="btnToday" style="width:100%;padding:10px;background:#2196F3;color:#fff;border:none;border-radius:6px;font-size:18px;margin-bottom:10px;">一鍵請今天</button>
 
