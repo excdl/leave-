@@ -115,7 +115,7 @@ input, select, textarea {
 </table>
 
 <script>
-const API_ENDPOINT="https://script.google.com/macros/s/AKfycbz4CZCirsXLf2tOrA1jaikzNgQ_-1EdgfwkuOnqOmTEMY4wussWX4OfXgvngkNVwvIR5Q/exec";
+const API_ENDPOINT="https://script.google.com/macros/s/AKfycby9ux7_Jw2UeVK0xWNw2RizKyHFfVILwWRYFishhHlBUGQm4FJn_uc0ucnvTkN1SFnImw/exec";
 
 let userId="", userName="", remainHours=0;
 
@@ -317,41 +317,41 @@ document.getElementById("btnLeaveApply").onclick=async ()=>{
       sD.addEventListener("change",()=>{ eD.value=sD.value; calc(); });
       [sD,sT,eD,eT,lType].forEach(el=>el.addEventListener("change",calc));
 
-  async function calc(){
-  if(!sD.value||!sT.value||!eD.value||!eT.value) return;
+      async function calc(){
+        if(!sD.value||!sT.value||!eD.value||!eT.value) return;
 
-  const url =
-    `${API_ENDPOINT}?action=calculateLeaveHours` +
-    `&userId=${userId}` +
-    `&startDate=${sD.value}` +
-    `&startTime=${sT.value}` +
-    `&endDate=${eD.value}` +
-    `&endTime=${eT.value}`;
+        const startTime=new Date(`${sD.value}T${sT.value}`);
+        const endTime=new Date(`${eD.value}T${eT.value}`);
 
-  const res = await fetch(url);
-  const text = await res.text();
+        if(endTime < startTime){
+          Swal.showValidationMessage("終止日期不可早於起始日期");
+          lH.value=0;
+          return;
+        }
 
-  console.log("API RAW:", text);
+        let hours = (endTime - startTime)/3600000;
 
-  let data;
-  try {
-    data = JSON.parse(text);
-  } catch (e) {
-    Swal.showValidationMessage("API 回傳不是 JSON");
-    return;
-  }
+        if(lType.value==="特休"){
+          const realtimeRemain = await getRealtimeRemainHours();
 
-  if(!data.success){
-    lH.value = 0;
-    Swal.showValidationMessage(data.message || "計算失敗");
-    return;
-  }
+          if(hours>realtimeRemain){
+            Swal.showValidationMessage("❌ 請假時數超過剩餘特休");
+            hours=0;
+          }else{
+            Swal.resetValidationMessage();
+          }
 
-  const hours = data.leaveHours;
+          rDisp.textContent=`剩餘特休: ${Math.max(0,(realtimeRemain-hours)).toFixed(2)} 小時`;
+        }else{
+          Swal.resetValidationMessage();
+          rDisp.textContent="";
+        }
 
-  lH.value = hours.toFixed(2);
-  Swal.resetValidationMessage();
-}
+        lH.value=hours.toFixed(2);
+      }
+
+      calc();
+    },
 
     preConfirm: async ()=>{
 
@@ -426,6 +426,12 @@ document.getElementById("btnLeaveApply").onclick=async ()=>{
     loadLeaveRecords();
   });
 };
+
+window.onload=initLIFF;
+</script>
+
+</body>
+</html>
 
 window.onload=initLIFF;
 </script>
