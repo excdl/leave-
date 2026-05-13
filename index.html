@@ -115,7 +115,7 @@ input, select, textarea {
 </table>
 
 <script>
-const API_ENDPOINT="https://script.google.com/macros/s/AKfycby9ux7_Jw2UeVK0xWNw2RizKyHFfVILwWRYFishhHlBUGQm4FJn_uc0ucnvTkN1SFnImw/exec";
+const API_ENDPOINT="https://script.google.com/macros/s/AKfycbwdSUuowIG4vIxlQIfV7LCGrYIzyzi45hwfG4OX5EeSieAXhZSe1Es1YPr0JQJt9n2rNQ/exec";
 
 let userId="", userName="", remainHours=0;
 
@@ -181,6 +181,9 @@ async function loadAnnualInfo(){
 
   const remain = (empInfo.total || 0) - usedSigned;
   remainHours = remain;
+  
+  document.getElementById("remainDisplay").innerHTML =
+  `剩餘特休: ${remain} 小時`;
 
   document.getElementById("annualInfo").innerHTML=
     `累計年假：<b>${empInfo.total}</b> 小時 已休：<b>${usedSigned}</b> 小時 剩餘：<b style="color:${remain<=0?'red':'green'}">${remain}</b> 小時`;
@@ -291,7 +294,7 @@ document.getElementById("btnLeaveApply").onclick=async ()=>{
         style="padding:20px;font-size:26px;font-weight:bold;background:#eee;border-radius:12px;">
 
       <div id="remainDisplay" style="margin-top:10px;">
-        剩餘特休: ${remainHours} 小時
+        剩餘特休: 載入中...
       </div>
 
     </div>
@@ -318,50 +321,64 @@ document.getElementById("btnLeaveApply").onclick=async ()=>{
       [sD,sT,eD,eT,lType].forEach(el=>el.addEventListener("change",calc));
 
       async function calc(){
-        if(!sD.value||!sT.value||!eD.value||!eT.value) return;
 
-        const startTime=new Date(`${sD.value}T${sT.value}`);
-        const endTime=new Date(`${eD.value}T${eT.value}`);
+  if(!sD.value || !sT.value || !eD.value || !eT.value) return;
 
-        if(endTime < startTime){
-          Swal.showValidationMessage("終止日期不可早於起始日期");
-          lH.value=0;
-          return;
-        }
+  try {
 
-        let hours = (endTime - startTime)/3600000;
+    // ===== 交給後端計算（唯一真值）=====
+    const res = await fetch(
+      API_ENDPOINT +
+      "?action=calculateLeaveHours" +
+      "&userId=" + encodeURIComponent(userId) +
+      "&startDate=" + sD.value +
+      "&startTime=" + sT.value +
+      "&endDate=" + eD.value +
+      "&endTime=" + eT.value
+    );
 
-        if(lType.value==="特休"){
-          const realtimeRemain = await getRealtimeRemainHours();
+    const data = await res.json();
 
-          if(hours>realtimeRemain){
-            Swal.showValidationMessage("❌ 請假時數超過剩餘特休");
-            hours=0;
-          }else{
-            Swal.resetValidationMessage();
-          }
+    if(!data.success) return;
 
-          rDisp.textContent=`剩餘特休: ${Math.max(0,(realtimeRemain-hours)).toFixed(2)} 小時`;
-        }else{
-          Swal.resetValidationMessage();
-          rDisp.textContent="";
-        }
+    const hours = Number(data.leaveHours || 0);
+    lH.value = hours.toFixed(2);
 
-        lH.value=hours.toFixed(2);
-      }
+    // ===== 特休剩餘 =====
+    if(lType.value === "特休"){
 
-      calc();
+      const realtimeRemain = await getRealtimeRemainHours();
+      remainHours = realtimeRemain;
+      const remain = realtimeRemain - hours;
+
+      rDisp.innerHTML =
+        remain >= 0
+          ? `剩餘特休: ${remain.toFixed(2)} 小時`
+          : `<span style="color:red;">❌ 特休不足</span>`;
+    } else {
+      rDisp.textContent = "";
+  
+    }
+
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+calc();
     },
 
     preConfirm: async ()=>{
 
-      const lh=parseFloat(document.getElementById("leaveHours").value),
-            lType=document.getElementById("leaveType").value,
-            leaveReason=document.getElementById("leaveReason").value,
-            sD=document.getElementById("leaveStartDate").value,
-            sT=document.getElementById("leaveStartTime").value,
-            eD=document.getElementById("leaveEndDate").value,
-            eT=document.getElementById("leaveEndTime").value;
+      preConfirm: async ()=>{
+
+  const lh = Number(document.getElementById("leaveHours").value || 0),
+        lType = document.getElementById("leaveType").value,
+        leaveReason = document.getElementById("leaveReason").value,
+        sD = document.getElementById("leaveStartDate").value,
+        sT = document.getElementById("leaveStartTime").value,
+        eD = document.getElementById("leaveEndDate").value,
+        eT = document.getElementById("leaveEndTime").value;
 
       // ✅ 事由改為非必填
       if(!sD||!eD){
