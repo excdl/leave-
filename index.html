@@ -318,37 +318,65 @@ document.getElementById("btnLeaveApply").onclick=async ()=>{
       [sD,sT,eD,eT,lType].forEach(el=>el.addEventListener("change",calc));
 
       async function calc(){
-        if(!sD.value||!sT.value||!eD.value||!eT.value) return;
 
-        const startTime=new Date(`${sD.value}T${sT.value}`);
-        const endTime=new Date(`${eD.value}T${eT.value}`);
+  if(!sD.value||!sT.value||!eD.value||!eT.value) return;
 
-        if(endTime < startTime){
-          Swal.showValidationMessage("終止日期不可早於起始日期");
-          lH.value=0;
-          return;
-        }
+  const startTime=new Date(`${sD.value}T${sT.value}`);
+  const endTime=new Date(`${eD.value}T${eT.value}`);
 
-        let hours = (endTime - startTime)/3600000;
+  if(endTime < startTime){
+    Swal.showValidationMessage("終止日期不可早於起始日期");
+    lH.value=0;
+    return;
+  }
 
-        if(lType.value==="特休"){
-          const realtimeRemain = await getRealtimeRemainHours();
+  // ===== 改為呼叫後端實時計算 =====
+  const res = await fetch(
+    `${API_ENDPOINT}?action=calculateLeaveHours` +
+    `&userId=${userId}` +
+    `&startDate=${sD.value}` +
+    `&startTime=${sT.value}` +
+    `&endDate=${eD.value}` +
+    `&endTime=${eT.value}`
+  );
 
-          if(hours>realtimeRemain){
-            Swal.showValidationMessage("❌ 請假時數超過剩餘特休");
-            hours=0;
-          }else{
-            Swal.resetValidationMessage();
-          }
+  const result = await res.json();
 
-          rDisp.textContent=`剩餘特休: ${Math.max(0,(realtimeRemain-hours)).toFixed(2)} 小時`;
-        }else{
-          Swal.resetValidationMessage();
-          rDisp.textContent="";
-        }
+  let hours = Number(result.leaveHours || 0);
 
-        lH.value=hours.toFixed(2);
-      }
+  // ===== 無排班 =====
+  if(hours <= 0){
+    Swal.showValidationMessage("查無符合排班時間");
+    lH.value = 0;
+    return;
+  }
+
+  // ===== 特休檢查 =====
+  if(lType.value==="特休"){
+
+    const realtimeRemain = await getRealtimeRemainHours();
+
+    if(hours > realtimeRemain){
+
+      Swal.showValidationMessage("❌ 請假時數超過剩餘特休");
+      lH.value = hours.toFixed(2);
+
+    }else{
+
+      Swal.resetValidationMessage();
+    }
+
+    rDisp.textContent =
+      `剩餘特休: ${Math.max(0,(realtimeRemain-hours)).toFixed(2)} 小時`;
+
+  }else{
+
+    Swal.resetValidationMessage();
+    rDisp.textContent="";
+  }
+
+  lH.value = hours.toFixed(2);
+}
 
       calc();
     },
