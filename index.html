@@ -329,7 +329,17 @@ document.getElementById("btnLeaveApply").onclick=async ()=>{
     `&endTime=${eT.value}`;
 
   const res = await fetch(url);
-  const data = await res.json();
+  const text = await res.text();
+
+  console.log("API RAW:", text);
+
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    Swal.showValidationMessage("API 回傳不是 JSON");
+    return;
+  }
 
   if(!data.success){
     lH.value = 0;
@@ -341,21 +351,6 @@ document.getElementById("btnLeaveApply").onclick=async ()=>{
 
   lH.value = hours.toFixed(2);
   Swal.resetValidationMessage();
-
-  if(lType.value==="特休"){
-    const realtimeRemain = await getRealtimeRemainHours();
-
-    if(hours > realtimeRemain){
-      Swal.showValidationMessage("❌ 請假時數超過剩餘特休");
-    } else {
-      Swal.resetValidationMessage();
-    }
-
-    rDisp.textContent =
-      `剩餘特休: ${(realtimeRemain - hours).toFixed(2)} 小時`;
-  } else {
-    rDisp.textContent = "";
-  }
 }
 
     preConfirm: async ()=>{
