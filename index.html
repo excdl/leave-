@@ -314,21 +314,34 @@ document.getElementById("btnLeaveApply").onclick=async ()=>{
             lType=document.getElementById("leaveType"),
             rDisp=document.getElementById("remainDisplay");
 
-      sD.addEventListener("change",()=>{ eD.value=sD.value; calc(); });
+      sD.addEventListener("change",()=>{
+  eD.value = sD.value;
+  calc();
+});
       [sD,sT,eD,eT,lType].forEach(el=>el.addEventListener("change",calc));
 
       async function calc(){
 
   if(!sD.value||!sT.value||!eD.value||!eT.value) return;
 
-  const startTime=new Date(`${sD.value}T${sT.value}`);
-  const endTime=new Date(`${eD.value}T${eT.value}`);
+  const startTime = new Date(`${sD.value}T${sT.value}`);
+const endTime = new Date(`${eD.value}T${eT.value}`);
 
-  if(endTime < startTime){
-    Swal.showValidationMessage("終止日期不可早於起始日期");
-    lH.value=0;
-    return;
-  }
+// 防呆1：起始與終止日期必須同一天
+if (sD.value !== eD.value) {
+  Swal.showValidationMessage("❌ 起始日期與終止日期必須為同一天");
+  lH.value = 0;
+  return;
+}
+
+// 防呆2：終止時間必須晚於起始時間
+if (endTime <= startTime) {
+  Swal.showValidationMessage("❌ 終止時間必須晚於起始時間");
+  lH.value = 0;
+  return;
+}
+
+Swal.resetValidationMessage();
 
   // ===== 改為呼叫後端實時計算 =====
   const res = await fetch(
@@ -390,12 +403,29 @@ document.getElementById("btnLeaveApply").onclick=async ()=>{
             sT=document.getElementById("leaveStartTime").value,
             eD=document.getElementById("leaveEndDate").value,
             eT=document.getElementById("leaveEndTime").value;
+            eD.readOnly = true;
 
       // ✅ 事由改為非必填
-      if(!sD||!eD){
-        Swal.showValidationMessage("請填完整日期");
-        return false;
-      }
+      // 日期必填
+if(!sD || !eD){
+  Swal.showValidationMessage("請填完整日期");
+  return false;
+}
+
+// 防呆1：起始與終止日期必須同一天
+if(sD !== eD){
+  Swal.showValidationMessage("❌ 起始日期與終止日期必須為同一天");
+  return false;
+}
+
+// 防呆2：終止時間必須晚於起始時間
+const startDateTime = new Date(`${sD}T${sT}`);
+const endDateTime = new Date(`${eD}T${eT}`);
+
+if(endDateTime <= startDateTime){
+  Swal.showValidationMessage("❌ 終止時間必須晚於起始時間");
+  return false;
+}
 
       if(await checkDuplicateLeave(sD,sT,eD,eT)){
         Swal.showValidationMessage("❌ 已有相同時間的請假紀錄");
