@@ -111,30 +111,31 @@ async function loadAnnualInfo() {
 
 async function loadLeaveRecords() {
     const container = document.getElementById("leaveRecordList");
-    // 若已有快取資料則直接使用，不需要再 fetch
-    const data = cachedRecords.length ? cachedRecords : await fetchData("getLeaveRecords");
-    
-    if (!data.length) {
-        container.innerHTML = "<div style='text-align:center;'>無請假紀錄</div>";
-        return;
+    container.innerHTML = "<div style='text-align:center;'>載入中...</div>";
+
+    try {
+        // 若已有快取資料則直接使用，不需要再 fetch
+        const data = cachedRecords.length ? cachedRecords : await fetchData("getLeaveRecords");
+        
+        if (!data.length) {
+            container.innerHTML = "<div style='text-align:center;'>無請假紀錄</div>";
+            return;
+        }
+
+        container.innerHTML = data.map(r => `
+            <div class="record-item">
+              <div class="record-info">
+                <div style="font-size:16px; font-weight:bold;">${r.leaveType} (${r.leaveHours}小時)</div>
+                <div style="font-size:14px; color:#666;">${r.startDate} ${r.startTime} ~ ${r.endDate} ${r.endTime}</div>
+                <div style="font-size:14px; color:#333;">事由：${r.leaveReason || "無"}</div>
+              </div>
+              <div class="status-badge ${r.signStatus === '未簽核' ? 'badge-未簽核' : r.signStatus === '簽核中' ? 'badge-簽核中' : 'badge-已簽核'}">${r.signStatus}</div>
+            </div>
+        `).join("");
+    } catch (e) {
+        console.error(e);
+        container.innerHTML = "<div style='text-align:center;'>讀取失敗</div>";
     }
-
-    container.innerHTML = data.map(r => `
-        <div class="record-item">
-          <div class="record-info">
-            <div style="font-size:16px; font-weight:bold;">${r.leaveType} (${r.leaveHours}小時)</div>
-            <div style="font-size:14px; color:#666;">${r.startDate} ${r.startTime} ~ ${r.endDate} ${r.endTime}</div>
-            <div style="font-size:14px; color:#333;">事由：${r.leaveReason || "無"}</div>
-          </div>
-          <div class="status-badge ${r.signStatus === '未簽核' ? 'badge-未簽核' : r.signStatus === '簽核中' ? 'badge-簽核中' : 'badge-已簽核'}">${r.signStatus}</div>
-        </div>
-    `).join("");
-}
-
-catch(e) {
-    console.error(e);
-    container.innerHTML="<div style='text-align:center;'>讀取失敗</div>";
-  }
 }
 
 document.getElementById("btnLeaveApply").onclick=async ()=>{
