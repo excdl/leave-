@@ -92,36 +92,25 @@ async function getRealtimeRemainHours(){
   return (empInfo.total || 0) - usedSigned - usedPending;
 }
 
-async function initLIFF() {
-  try {
-    await liff.init({ liffId: "2009444587-t79pfL2A" });
-    if (!liff.isLoggedIn()) await liff.login();
+async function initLIFF(){
+  try{
+    await liff.init({ liffId:"2009444587-t79pfL2A" });
+    if(!liff.isLoggedIn()) await liff.login();
 
     const profile = await liff.getProfile();
-    userId = profile.userId;
-    userName = profile.displayName;
-    document.getElementById("userInfo").textContent = `${userName} 您好`;
+    userId=profile.userId;
+    userName=profile.displayName;
 
-    // 同時發送請求，加快載入速度
-    const [empRes, leaveRes] = await Promise.all([
-      fetch(`${API_ENDPOINT}?action=getUserInfo&userId=${userId}`),
-      fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`)
-    ]);
+    document.getElementById("userInfo").textContent=`${userName} 您好`;
 
-    const empInfo = await empRes.json();
-    const records = await leaveRes.json();
+    await loadAnnualInfo();
+    loadLeaveRecords();
 
-    // 一次性渲染介面
-    updateAnnualInfoUI(empInfo, records);
-    renderLeaveRecords(records); // 需將原本 render 的邏輯抽離出來
-
-  } catch (e) {
+  }catch(e){
     console.error(e);
-    document.getElementById("userInfo").textContent = "請在 LINE 開啟";
+    document.getElementById("userInfo").textContent="請在 LINE 開啟";
   }
 }
-
-
 
 async function loadAnnualInfo(){
   const res = await fetch(`${API_ENDPOINT}?action=getUserInfo&userId=${userId}`);
@@ -144,7 +133,6 @@ async function loadAnnualInfo(){
   document.getElementById("annualInfo").innerHTML = 
     `<span style="font-size: 90%; white-space: nowrap;">累計年假：<b>${empInfo.total}</b> 小時，已休：<b>${usedSigned}</b> 小時，剩餘：<b style="color:${remain<=0?'red':'green'}">${remain}</b> 小時</span>`;
 }
-
 
 async function checkDuplicateLeave(sD,sT,eD,eT){
   try{
@@ -438,5 +426,6 @@ window.onload=initLIFF;
 
 </body>
 </html>
+
 
 
