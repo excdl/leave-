@@ -56,7 +56,7 @@
 <h2 id="userInfo">載入中...</h2>
 <h3 id="annualInfo">載入年假中...</h3>
 
-<button id="btnLeaveApply" class="btn-success">申請請假</button>
+<button id="btnLeaveApply" class="btn-success">我要請假</button>
 
 <div id="leaveRecordList">
   <div style="text-align:center; padding:20px;">載入中...</div>
@@ -131,7 +131,7 @@ async function loadAnnualInfo(){
   remainHours = remain;
 
   document.getElementById("annualInfo").innerHTML = 
-    `<span style="font-size: 100%; white-space: nowrap;">累計年假：<b>${empInfo.total}</b> 小時，已休：<b>${usedSigned}</b> 小時，剩餘：<b style="color:${remain<=0?'red':'green'}">${remain}</b> 小時</span>`;
+    `<span style="font-size: 95%; white-space: nowrap;">累計年假：<b>${empInfo.total}</b> 小時，已休：<b>${usedSigned}</b> 小時，剩餘：<b style="color:${remain<=0?'red':'green'}">${remain}</b> 小時</span>`;
 }
 
 async function checkDuplicateLeave(sD,sT,eD,eT){
