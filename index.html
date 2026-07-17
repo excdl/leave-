@@ -63,79 +63,130 @@
 </div>
 
 <script>
-const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbwhoKVajT28FGO-FRhHZTt2sD8XhiS9isHKnbTLAZy5HlN3NR-pJDb31VGytElioN0FLw/exec";
-let userId = "", userName = "", remainHours = 0;
-let cachedRecords = [], cachedEmpInfo = {};
+const API_ENDPOINT="https://script.google.com/macros/s/AKfycbwhoKVajT28FGO-FRhHZTt2sD8XhiS9isHKnbTLAZy5HlN3NR-pJDb31VGytElioN0FLw/exec";
 
-// 共用的 API 請求封裝，減少重複邏輯
-async function fetchData(action, params = "") {
-    const res = await fetch(`${API_ENDPOINT}?action=${action}&userId=${userId}${params}`);
-    return await res.json();
+let userId="", userName="", remainHours=0;
+
+function normalizeTime(t){
+  if(!t) return "00:00";
+  const parts=t.split(":").map(p=>p.padStart(2,"0"));
+  return parts[0]+":"+parts[1];
 }
 
-async function initLIFF() {
-    try {
-        await liff.init({ liffId: "2009444587-t79pfL2A" });
-        if (!liff.isLoggedIn()) await liff.login();
-        const profile = await liff.getProfile();
-        userId = profile.userId;
-        userName = profile.displayName;
-        document.getElementById("userInfo").textContent = `${userName} 您好`;
+async function getRealtimeRemainHours(){
+  const leaveRes = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`);
+  const records = await leaveRes.json();
 
-        // 【優化】使用 Promise.all 同時載入資料
-        await Promise.all([loadAnnualInfo(), loadLeaveRecords()]);
-    } catch (e) {
-        console.error(e);
-        document.getElementById("userInfo").textContent = "請在 LINE 開啟";
+  let usedSigned=0, usedPending=0;
+
+  records.forEach(r=>{
+    if(r.leaveType==="特休"){
+      if(r.signStatus==="已簽核") usedSigned += parseFloat(r.leaveHours||0);
+      else usedPending += parseFloat(r.leaveHours||0);
     }
+  });
+
+  const empRes = await fetch(`${API_ENDPOINT}?action=getUserInfo&userId=${userId}`);
+  const empInfo = await empRes.json();
+
+  return (empInfo.total || 0) - usedSigned - usedPending;
 }
 
-async function loadAnnualInfo() {
-    // 【優化】這裡假設資料已在 loadLeaveRecords 或其他地方處理，減少不必要的請求
-    // 如果需要最新資料，請確保在此處直接呼叫
-    const [empInfo, records] = await Promise.all([
-        fetchData("getUserInfo"),
-        fetchData("getLeaveRecords")
-    ]);
-    
-    cachedEmpInfo = empInfo;
-    cachedRecords = records;
+async function initLIFF(){
+  try{
+    await liff.init({ liffId:"2009444587-t79pfL2A" });
+    if(!liff.isLoggedIn()) await liff.login();
 
-    let usedSigned = records.filter(r => r.leaveType === "特休" && r.signStatus === "已簽核")
-                            .reduce((sum, r) => sum + parseFloat(r.leaveHours || 0), 0);
-    
-    remainHours = (empInfo.total || 0) - usedSigned;
-    document.getElementById("annualInfo").innerHTML = 
-        `<span style="font-size: 90%; white-space: nowrap;">累計年假：<b>${empInfo.total}</b> 小時，已休：<b>${usedSigned}</b> 小時，剩餘：<b style="color:${remainHours <= 0 ? 'red' : 'green'}">${remainHours}</b> 小時</span>`;
+    const profile = await liff.getProfile();
+    userId=profile.userId;
+    userName=profile.displayName;
+
+    document.getElementById("userInfo").textContent=`${userName} 您好`;
+
+    await loadAnnualInfo();
+    loadLeaveRecords();
+
+  }catch(e){
+    console.error(e);
+    document.getElementById("userInfo").textContent="請在 LINE 開啟";
+  }
 }
 
-async function loadLeaveRecords() {
-    const container = document.getElementById("leaveRecordList");
-    container.innerHTML = "<div style='text-align:center;'>載入中...</div>";
+async function loadAnnualInfo(){
+  const res = await fetch(`${API_ENDPOINT}?action=getUserInfo&userId=${userId}`);
+  const empInfo = await res.json();
 
-    try {
-        // 若已有快取資料則直接使用，不需要再 fetch
-        const data = cachedRecords.length ? cachedRecords : await fetchData("getLeaveRecords");
-        
-        if (!data.length) {
-            container.innerHTML = "<div style='text-align:center;'>無請假紀錄</div>";
-            return;
-        }
+  const leaveRes = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`);
+  const records = await leaveRes.json();
 
-        container.innerHTML = data.map(r => `
-            <div class="record-item">
-              <div class="record-info">
-                <div style="font-size:16px; font-weight:bold;">${r.leaveType} (${r.leaveHours}小時)</div>
-                <div style="font-size:14px; color:#666;">${r.startDate} ${r.startTime} ~ ${r.endDate} ${r.endTime}</div>
-                <div style="font-size:14px; color:#333;">事由：${r.leaveReason || "無"}</div>
-              </div>
-              <div class="status-badge ${r.signStatus === '未簽核' ? 'badge-未簽核' : r.signStatus === '簽核中' ? 'badge-簽核中' : 'badge-已簽核'}">${r.signStatus}</div>
-            </div>
-        `).join("");
-    } catch (e) {
-        console.error(e);
-        container.innerHTML = "<div style='text-align:center;'>讀取失敗</div>";
+  let usedSigned=0;
+
+  records.forEach(r=>{
+    if(r.leaveType==="特休" && r.signStatus==="已簽核"){
+      usedSigned += parseFloat(r.leaveHours||0);
     }
+  });
+
+  const remain = (empInfo.total || 0) - usedSigned;
+  remainHours = remain;
+
+  document.getElementById("annualInfo").innerHTML = 
+    `<span style="font-size: 90%; white-space: nowrap;">累計年假：<b>${empInfo.total}</b> 小時，已休：<b>${usedSigned}</b> 小時，剩餘：<b style="color:${remain<=0?'red':'green'}">${remain}</b> 小時</span>`;
+}
+
+async function checkDuplicateLeave(sD,sT,eD,eT){
+  try{
+    const res=await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`);
+    const records=await res.json();
+
+    const newStart=`${sD} ${normalizeTime(sT)}`;
+    const newEnd=`${eD} ${normalizeTime(eT)}`;
+
+    return records.some(r=>{
+      const existingStart=`${r.startDate} ${normalizeTime(r.startTime)}`;
+      const existingEnd=`${r.endDate} ${normalizeTime(r.endTime)}`;
+      return newStart===existingStart && newEnd===existingEnd;
+    });
+
+  }catch(e){
+    console.error(e);
+    return false;
+  }
+}
+
+async function loadLeaveRecords(){
+  const container = document.getElementById("leaveRecordList");
+  container.innerHTML="<div style='text-align:center;'>載入中...</div>";
+
+  try {
+    const res = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`);
+    const data = await res.json();
+
+    if(!data.length){
+      container.innerHTML="<div style='text-align:center;'>無請假紀錄</div>";
+      return;
+    }
+
+    container.innerHTML = data.map(r => {
+      let cls = r.signStatus==='未簽核' ? 'badge-未簽核' :
+                r.signStatus==='簽核中' ? 'badge-簽核中' : 'badge-已簽核';
+      
+      return `
+        <div class="record-item">
+          <div class="record-info">
+            <div style="font-size:16px; font-weight:bold;">${r.leaveType} (${r.leaveHours}小時)</div>
+            <div style="font-size:14px; color:#666;">${r.startDate} ${r.startTime} ~ ${r.endDate} ${r.endTime}</div>
+            <div style="font-size:14px; color:#333;">事由：${r.leaveReason || "無"}</div>
+          </div>
+          <div class="status-badge ${cls}">${r.signStatus}</div>
+        </div>
+      `;
+    }).join("");
+
+  } catch(e) {
+    console.error(e);
+    container.innerHTML="<div style='text-align:center;'>讀取失敗</div>";
+  }
 }
 
 document.getElementById("btnLeaveApply").onclick=async ()=>{
@@ -373,9 +424,10 @@ if(endDateTime <= startDateTime){
 window.onload=initLIFF;
 </script>
 
-
 </body>
 </html>
+
+
 
 
 
