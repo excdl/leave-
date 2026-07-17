@@ -2,149 +2,42 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>專業請假系統</title>
-
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
 <style>
-body{
-  font-family:"Helvetica Neue",Arial,sans-serif;
-  background:#f0f2f5;
-  padding:15px;
-}
+  body { font-family: "Helvetica Neue", Arial, sans-serif; background: #f0f2f5; padding: 15px; margin: 0; }
+  h2, h3 { margin-bottom: 10px; }
+  
+  /* 按鈕樣式 */
+  .btn-success {
+    background: #4caf50; color: white; border: none; border-radius: 14px;
+    font-size: 28px; font-weight: bold; padding: 28px 40px;
+    min-height: 90px; width: 100%; max-width: 400px;
+    margin: 10px auto; display: flex; align-items: center; justify-content: center;
+  }
 
-h2,h3{margin-bottom:10px;}
+  /* 卡片清單樣式 */
+  #leaveRecordList { margin-top: 20px; }
+  .record-item {
+    background: white; border-radius: 12px; padding: 15px; margin-bottom: 12px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 5px solid #2196f3;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .record-info { display: flex; flex-direction: column; gap: 4px; }
+  .status-badge { font-size: 14px; font-weight: bold; padding: 6px 12px; border-radius: 6px; }
+  .badge-未簽核 { background: #ffebee; color: #f44336; }
+  .badge-簽核中 { background: #fff3e0; color: #ff9800; }
+  .badge-已簽核 { background: #e8f5e9; color: #4caf50; }
 
-button{
-  padding:14px 26px;
-  border:none;
-  border-radius:10px;
-  cursor:pointer;
-  font-size:20px;
-}
-
-.btn-success{
-  background:#4caf50;
-  color:white;
-
-  /* ✅ 放大 */
-  font-size:28px;
-  font-weight:bold;
-
-  /* ✅ 按鈕變大 */
-  padding:28px 40px;
-
-  /* ✅ 文字置中（水平 + 垂直） */
-  display:flex;
-  align-items:center;
-  justify-content:center;
-
-  /* ✅ 增加按鈕高度 */
-  min-height:90px;
-
-  /* ✅ 圓角更明顯 */
-  border-radius:14px;
-}
-  #btnLeaveApply{
-  width:100%;
-  max-width:400px;
-  margin:10px auto;
-  display:flex;
-}
-table{
-  width:100%;
-  border-collapse:collapse;
-  font-size:16px;
-  margin-top:20px;
-}
-
-th,td{
-  border:1px solid #ddd;
-  padding:12px;
-  text-align:center;
-}
-
-th{
-  background:#f7f7f7;
-  font-weight:bold;
-}
-
-.badge-未簽核{background:#f44336;color:white;padding:6px 12px;border-radius:6px;}
-.badge-簽核中{background:#ff9800;color:white;padding:6px 12px;border-radius:6px;}
-.badge-已簽核{background:#4caf50;color:white;padding:6px 12px;border-radius:6px;}
-
-/* 送出 / 取消按鈕再放大20% */
-.swal-btn{
-  font-size:38px !important;
-  font-weight:bold !important;
-
-  /* 按鈕尺寸 */
-  padding:30px 52px !important;
-
-  /* 按鈕高度 */
-  min-height:96px !important;
-
-  border-radius:18px !important;
-}
-  .swal2-actions{
-  gap:20px !important;
-}
-
-.swal-btn{
-  min-width:220px !important;
-}
-/* SweetAlert 標題 */
-.swal2-title{
-  font-size:42px !important;
-}
-
-/* SweetAlert 內容文字 */
-.swal2-html-container{
-  font-size:34px !important;
-}
-
-/* 錯誤訊息文字 */
-.swal2-validation-message{
-  font-size:30px !important;
-  font-weight:bold !important;
-  color:red !important;
-}
-
-/* Label文字 */
-.swal2-html-container label{
-  font-size:32px !important;
-  font-weight:bold;
-}
-
-/* 下拉選單 */
-.swal2-html-container select{
-  font-size:30px !important;
-  padding:24px !important;
-}
-
-/* 日期時間輸入框 */
-.swal2-html-container input{
-  font-size:30px !important;
-  padding:24px !important;
-}
-
-/* Placeholder提示文字 */
-.swal2-html-container input::placeholder{
-  font-size:28px !important;
-  color:#888;
-}
-
-/* 剩餘特休顯示 */
-#remainDisplay{
-  font-size:30px !important;
-  font-weight:bold;
-}
-/* 全域輸入放大 */
-input, select, textarea {
-  font-size: 20px;
-  -webkit-text-size-adjust: 100%;
-}
+  /* SweetAlert 優化 */
+  .swal-btn { font-size: 38px !important; font-weight: bold !important; padding: 30px 52px !important; border-radius: 18px !important; min-width: 220px !important; }
+  .swal2-title { font-size: 42px !important; }
+  .swal2-html-container { font-size: 34px !important; }
+  .swal2-html-container label { font-size: 32px !important; font-weight: bold; }
+  .swal2-html-container input, .swal2-html-container select { font-size: 30px !important; padding: 24px !important; }
 </style>
 </head>
 
@@ -155,24 +48,9 @@ input, select, textarea {
 
 <button id="btnLeaveApply" class="btn-success">申請請假</button>
 
-<table>
-<thead>
-<tr>
-<th>員工姓名</th>
-<th>假別</th>
-<th>事由</th>
-<th>起始日期</th>
-<th>起始時間</th>
-<th>終止日期</th>
-<th>終止時間</th>
-<th>請假時數</th>
-<th>簽核狀態</th>
-</tr>
-</thead>
-<tbody id="leaveRecordTable">
-<tr><td colspan='9'>載入中...</td></tr>
-</tbody>
-</table>
+<div id="leaveRecordList">
+  <div style="text-align:center; padding:20px;">載入中...</div>
+</div>
 
 <script>
 const API_ENDPOINT="https://script.google.com/macros/s/AKfycbwhoKVajT28FGO-FRhHZTt2sD8XhiS9isHKnbTLAZy5HlN3NR-pJDb31VGytElioN0FLw/exec";
@@ -267,49 +145,37 @@ async function checkDuplicateLeave(sD,sT,eD,eT){
 }
 
 async function loadLeaveRecords(){
-  const tbody=document.getElementById("leaveRecordTable");
-  tbody.innerHTML="<tr><td colspan='9'>載入中...</td></tr>";
+  const container = document.getElementById("leaveRecordList");
+  container.innerHTML="<div style='text-align:center;'>載入中...</div>";
 
-  try{
-    const res=await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`);
-    const data=await res.json();
+  try {
+    const res = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`);
+    const data = await res.json();
 
     if(!data.length){
-      tbody.innerHTML="<tr><td colspan='9'>無請假紀錄</td></tr>";
+      container.innerHTML="<div style='text-align:center;'>無請假紀錄</div>";
       return;
     }
 
-    const frag=document.createDocumentFragment();
-
-    data.forEach(r=>{
-      const row=document.createElement("tr");
-
-      let cls =
-        r.signStatus==='未簽核' ? 'badge-未簽核' :
-        r.signStatus==='簽核中' ? 'badge-簽核中' :
-        'badge-已簽核';
-
-      row.innerHTML=`
-        <td>${r.userName}</td>
-        <td>${r.leaveType}</td>
-        <td>${r.leaveReason || ""}</td>
-        <td>${r.startDate}</td>
-        <td>${r.startTime}</td>
-        <td>${r.endDate}</td>
-        <td>${r.endTime}</td>
-        <td>${r.leaveHours}</td>
-        <td><span class="${cls}">${r.signStatus}</span></td>
+    container.innerHTML = data.map(r => {
+      let cls = r.signStatus==='未簽核' ? 'badge-未簽核' :
+                r.signStatus==='簽核中' ? 'badge-簽核中' : 'badge-已簽核';
+      
+      return `
+        <div class="record-item">
+          <div class="record-info">
+            <div style="font-size:16px; font-weight:bold;">${r.leaveType} (${r.leaveHours}小時)</div>
+            <div style="font-size:14px; color:#666;">${r.startDate} ${r.startTime} ~ ${r.endDate} ${r.endTime}</div>
+            <div style="font-size:14px; color:#333;">事由：${r.leaveReason || "無"}</div>
+          </div>
+          <div class="status-badge ${cls}">${r.signStatus}</div>
+        </div>
       `;
+    }).join("");
 
-      frag.appendChild(row);
-    });
-
-    tbody.innerHTML="";
-    tbody.appendChild(frag);
-
-  }catch(e){
+  } catch(e) {
     console.error(e);
-    tbody.innerHTML="<tr><td colspan='9'>讀取失敗</td></tr>";
+    container.innerHTML="<div style='text-align:center;'>讀取失敗</div>";
   }
 }
 
