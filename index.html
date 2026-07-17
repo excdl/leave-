@@ -120,9 +120,7 @@ async function loadAnnualInfo(){
   const remain = (empInfo.total || 0) - usedSigned;
   remainHours = remain;
 
-  document.getElementById("annualInfo").innerHTML=
-    `累計年假：<b>${empInfo.total}</b> 小時 已休：<b>${usedSigned}</b> 小時 剩餘：<b style="color:${remain<=0?'red':'green'}">${remain}</b> 小時`;
-}
+  document.getElementById("annualInfo").innerHTML = `累計年假：<b>${empInfo.total}</b> 小時，已休：<b>${usedSigned}</b> 小時，剩餘：<b style="color:${remain<=0?'red':'green'}">${remain}</b> 小時`;
 
 async function checkDuplicateLeave(sD,sT,eD,eT){
   try{
