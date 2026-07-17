@@ -92,34 +92,49 @@ async function getRealtimeRemainHours(){
   return (empInfo.total || 0) - usedSigned - usedPending;
 }
 
-async function initLIFF(){
-  try{
-    await liff.init({ liffId:"2009444587-t79pfL2A" });
-    if(!liff.isLoggedIn()) await liff.login();
+async function initLIFF() {
+  try {
+    await liff.init({ liffId: "2009444587-t79pfL2A" });
+    if (!liff.isLoggedIn()) await liff.login();
 
     const profile = await liff.getProfile();
-    userId=profile.userId;
-    userName=profile.displayName;
+    userId = profile.userId;
+    userName = profile.displayName;
+    document.getElementById("userInfo").textContent = `${userName} 您好`;
 
-    document.getElementById("userInfo").textContent=`${userName} 您好`;
+    // 同時發送請求，加快載入速度
+    const [empRes, leaveRes] = await Promise.all([
+      fetch(`${API_ENDPOINT}?action=getUserInfo&userId=${userId}`),
+      fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`)
+    ]);
 
-    await loadAnnualInfo();
-    loadLeaveRecords();
+    const empInfo = await empRes.json();
+    const records = await leaveRes.json();
 
-  }catch(e){
+    // 一次性渲染介面
+    updateAnnualInfoUI(empInfo, records);
+    renderLeaveRecords(records); // 需將原本 render 的邏輯抽離出來
+
+  } catch (e) {
     console.error(e);
-    document.getElementById("userInfo").textContent="請在 LINE 開啟";
+    document.getElementById("userInfo").textContent = "請在 LINE 開啟";
   }
 }
 
 
 
-// 修改為接收 empInfo 與 records，避免重複 fetch
-function updateAnnualInfoUI(empInfo, records) {
-  let usedSigned = 0;
-  records.forEach(r => {
-    if (r.leaveType === "特休" && r.signStatus === "已簽核") {
-      usedSigned += parseFloat(r.leaveHours || 0);
+async function loadAnnualInfo(){
+  const res = await fetch(`${API_ENDPOINT}?action=getUserInfo&userId=${userId}`);
+  const empInfo = await res.json();
+
+  const leaveRes = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`);
+  const records = await leaveRes.json();
+
+  let usedSigned=0;
+
+  records.forEach(r=>{
+    if(r.leaveType==="特休" && r.signStatus==="已簽核"){
+      usedSigned += parseFloat(r.leaveHours||0);
     }
   });
 
@@ -127,8 +142,9 @@ function updateAnnualInfoUI(empInfo, records) {
   remainHours = remain;
 
   document.getElementById("annualInfo").innerHTML = 
-    `<span style="font-size: 95%; white-space: nowrap;">累計年假：<b>${empInfo.total}</b> 小時，已休：<b>${usedSigned}</b> 小時，剩餘：<b style="color:${remain <= 0 ? 'red' : 'green'}">${remain}</b> 小時</span>`;
+    `<span style="font-size: 90%; white-space: nowrap;">累計年假：<b>${empInfo.total}</b> 小時，已休：<b>${usedSigned}</b> 小時，剩餘：<b style="color:${remain<=0?'red':'green'}">${remain}</b> 小時</span>`;
 }
+
 
 async function checkDuplicateLeave(sD,sT,eD,eT){
   try{
