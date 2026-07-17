@@ -130,8 +130,8 @@ async function loadAnnualInfo(){
   const remain = (empInfo.total || 0) - usedSigned;
   remainHours = remain;
 
-  document.getElementById("annualInfo").innerHTML=
-    `累計年假：<b>${empInfo.total}</b> 小時 已休：<b>${usedSigned}</b> 小時 剩餘：<b style="color:${remain<=0?'red':'green'}">${remain}</b> 小時`;
+  document.getElementById("annualInfo").innerHTML = 
+    `<span style="font-size: 100%; white-space: nowrap;">累計年假：<b>${empInfo.total}</b> 小時，已休：<b>${usedSigned}</b> 小時，剩餘：<b style="color:${remain<=0?'red':'green'}">${remain}</b> 小時</span>`;
 }
 
 async function checkDuplicateLeave(sD,sT,eD,eT){
@@ -197,7 +197,7 @@ document.getElementById("btnLeaveApply").onclick=async ()=>{
 
   Swal.fire({
     title:'📝 請假申請',
-    width:'95%',
+    width:'100%',
     html:`
     <div style="display:flex;flex-direction:column;gap:20px;font-size:26px;text-align:left;">
 
