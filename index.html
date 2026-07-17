@@ -92,7 +92,6 @@ async function getRealtimeRemainHours(){
   return (empInfo.total || 0) - usedSigned - usedPending;
 }
 
-// 修改後的 initLIFF
 async function initLIFF(){
   try{
     await liff.init({ liffId:"2009444587-t79pfL2A" });
@@ -101,20 +100,11 @@ async function initLIFF(){
     const profile = await liff.getProfile();
     userId=profile.userId;
     userName=profile.displayName;
+
     document.getElementById("userInfo").textContent=`${userName} 您好`;
 
-    // 【並行請求】同時取得所有必要資料，不再重複請求
-    const [empRes, recordsRes] = await Promise.all([
-      fetch(`${API_ENDPOINT}?action=getUserInfo&userId=${userId}`),
-      fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`)
-    ]);
-
-    const empInfo = await empRes.json();
-    const records = await recordsRes.json();
-
-    // 將資料傳入 UI 更新
-    updateAnnualUI(empInfo, records);
-    renderLeaveRecords(records); // 調整 render 函式接收資料
+    await loadAnnualInfo();
+    loadLeaveRecords();
 
   }catch(e){
     console.error(e);
@@ -433,6 +423,7 @@ if(endDateTime <= startDateTime){
 
 window.onload=initLIFF;
 </script>
+
 
 </body>
 </html>
