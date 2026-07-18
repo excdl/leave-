@@ -113,20 +113,31 @@ async function loadAnnualInfo(){
   document.getElementById("annualInfo").innerHTML = `剩餘特休：<b style="color:blue">${remainHours}</b> 小時`;
 }
 
-async function loadLeaveRecords(){
+async function loadLeaveRecords() {
   const container = document.getElementById("leaveRecordList");
-  const res = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`);
-  const data = await res.json();
-  container.innerHTML = data.length ? data.map(r => `
-    <div class="record-item">
-      <div>
-        <div style="font-weight:bold">${r.leaveType} (${r.leaveHours}h)</div>
-        <div style="font-size:12px; color:#888">${r.startDate} ${r.startTime} ~ ${r.endDate} ${r.endTime}</div>
-      </div>
-      <div class="status-badge badge-${r.signStatus}">${r.signStatus}</div>
-    </div>`).join("") : "<p style='text-align:center; color:#999'>目前無請假紀錄</p>";
-}
+  try {
+    const res = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`);
+    const data = await res.json();
+    
+    // ✅ 加入排序邏輯：日期越晚的越靠前
+    data.sort((a, b) => {
+      const dateA = new Date(`${a.startDate} ${a.startTime}`);
+      const dateB = new Date(`${b.startDate} ${b.startTime}`);
+      return dateB - dateA; // 由大到小排序
+    });
 
+    container.innerHTML = data.length ? data.map(r => `
+      <div class="record-item">
+        <div>
+          <div style="font-weight:bold">${r.leaveType} (${r.leaveHours}h)</div>
+          <div style="font-size:12px; color:#888">${r.startDate} ${r.startTime} ~ ${r.endDate} ${r.endTime}</div>
+        </div>
+        <div class="status-badge badge-${r.signStatus}">${r.signStatus}</div>
+      </div>`).join("") : "<p style='text-align:center; color:#999'>目前無請假紀錄</p>";
+  } catch(e) { 
+    container.innerHTML = "<p style='text-align:center; color:red'>讀取失敗</p>"; 
+  }
+}
 document.getElementById("btnLeaveApply").onclick = async () => {
   const typesRes = await fetch(`${API_ENDPOINT}?action=getLeaveTypes`);
   const types = await typesRes.json();
@@ -134,7 +145,7 @@ document.getElementById("btnLeaveApply").onclick = async () => {
   
   Swal.fire({
     title: '📝 請假申請',
-    width: '95%',
+    width: '100%',
     html: `
       <div style="display:flex;flex-direction:column;gap:15px;text-align:left;">
         <label>假別</label><select id="leaveType">${optionsHTML}</select>
