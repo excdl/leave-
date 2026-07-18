@@ -92,7 +92,7 @@ document.getElementById("btnLeaveApply").onclick=async ()=>{
 
   Swal.fire({
     title:'📝 請假申請',
-    width:'100%',
+    width:'95%',
     html:`
     <div style="display:flex;flex-direction:column;gap:20px;font-size:26px;text-align:left;">
 
@@ -225,9 +225,7 @@ Swal.resetValidationMessage();
       calc();
     },
 
-     preConfirm: async () => {
-      // 2. 顯示動畫
-      Swal.showLoading();
+    preConfirm: async ()=>{
 
       const lh=parseFloat(document.getElementById("leaveHours").value),
             lType=document.getElementById("leaveType").value,
@@ -283,36 +281,38 @@ if(endDateTime <= startDateTime){
         leaveHours:lh
       };
     }
-  }).then(async (res) => {
-    // 檢查使用者是否按下送出，且 preConfirm 有回傳資料
-    if (res.isConfirmed && res.value) {
-      const d = res.value;
+  }).then(async(res)=>{
 
-      // 執行 API 送出
-      const response = await fetch(API_ENDPOINT, {
-        method: "POST",
-        body: JSON.stringify({
-          action: "leave",
-          userId,
-          userName,
-          ...d
-        })
-      });
+    if(!res.isConfirmed) return;
 
-      const result = await response.json();
+    const d=res.value;
 
-      if (!result.success) {
-        // 這裡無法直接用 showValidationMessage，因為視窗已經關閉了
-        // 建議改用另一層 Swal 提示錯誤
-        Swal.fire({ icon: "error", title: "申請失敗", text: result.message });
-        return;
-      }
+    const response=await fetch(API_ENDPOINT,{
+      method:"POST",
+      body:JSON.stringify({
+        action:"leave",
+        userId,
+        userName,
+        ...d
+      })
+    });
 
-      // 成功後的處理
-      Swal.fire({ icon: "success", title: "完成", timer: 1200, showConfirmButton: false });
-      await loadAnnualInfo();
-      loadLeaveRecords();
+    const result=await response.json();
+
+    if(!result.success){
+      Swal.fire({icon:"error",title:result.message});
+      return;
     }
+
+    Swal.fire({
+      icon:"success",
+      title:"完成",
+      timer:1200,
+      showConfirmButton:false
+    });
+
+    await loadAnnualInfo();
+    loadLeaveRecords();
   });
 };
 
