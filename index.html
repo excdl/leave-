@@ -84,44 +84,80 @@ async function loadLeaveRecords(){
     </div>`).join("") : "<p style='text-align:center; color:#999'>目前無請假紀錄</p>";
 }
 
-// 申請請假按鈕
+// 申請請假按鈕 (已修正為您的原版排版風格)
 document.getElementById("btnLeaveApply").onclick = async () => {
   const typesRes = await fetch(`${API_ENDPOINT}?action=getLeaveTypes`);
   const types = await typesRes.json();
-  
+  const optionsHTML = types.map(t => `<option value="${t}">${t}</option>`).join("");
+
   const { value: formValues } = await Swal.fire({
-    title: '申請請假',
+    title: '📝 請假申請',
+    width: '95%',
     html: `
-      <label>假別</label><select id="swal-type" class="swal2-select">${types.map(t=>`<option value="${t}">${t}</option>`).join("")}</select>
-      <label>日期</label><input type="date" id="swal-sd" class="swal2-input">
-      <label>開始時間</label><input type="time" id="swal-st" class="swal2-input" value="09:00">
-      <label>結束時間</label><input type="time" id="swal-et" class="swal2-input" value="18:00">
-      <label>事由</label><input id="swal-reason" class="swal2-input" placeholder="選填">
-    `,
-    confirmButtonText: '送出申請',
+    <div style="display:flex;flex-direction:column;gap:20px;font-size:26px;text-align:left;">
+      <label>假別</label>
+      <select id="leaveType" style="padding:20px;font-size:24px;border-radius:12px;">${optionsHTML}</select>
+
+      <label>事由（可不填）</label>
+      <input id="leaveReason" placeholder="請輸入請假事由" style="padding:20px;font-size:24px;border-radius:12px;">
+
+      <label>起始日期</label>
+      <input type="date" id="leaveStartDate" style="padding:20px;font-size:24px;border-radius:12px;">
+
+      <label>起始時間</label>
+      <input type="time" id="leaveStartTime" value="09:00" style="padding:20px;font-size:24px;border-radius:12px;">
+
+      <label>終止日期</label>
+      <input type="date" id="leaveEndDate" style="padding:20px;font-size:24px;border-radius:12px;">
+
+      <label>終止時間</label>
+      <input type="time" id="leaveEndTime" value="18:00" style="padding:20px;font-size:24px;border-radius:12px;">
+    </div>`,
+    confirmButtonText: '送出',
     showCancelButton: true,
+    customClass: { confirmButton: 'swal-btn', cancelButton: 'swal-btn' },
     preConfirm: async () => {
-      Swal.showLoading(); // 自動顯示載入轉圈動畫
-      const data = {
-        action: "leave", userId, userName,
-        leaveType: document.getElementById('swal-type').value,
-        startDate: document.getElementById('swal-sd').value,
-        startTime: document.getElementById('swal-st').value,
-        endDate: document.getElementById('swal-sd').value,
-        endTime: document.getElementById('swal-et').value,
-        leaveReason: document.getElementById('swal-reason').value
-      };
+      // 顯示載入動畫並禁用按鈕
+      Swal.showLoading();
       
-      const response = await fetch(API_ENDPOINT, { method: "POST", body: JSON.stringify(data) });
-      const result = await response.json();
-      if (!result.success) throw new Error(result.message);
-      return result;
+      const data = {
+        action: "leave",
+        userId,
+        userName,
+        leaveType: document.getElementById("leaveType").value,
+        leaveReason: document.getElementById("leaveReason").value,
+        startDate: document.getElementById("leaveStartDate").value,
+        startTime: document.getElementById("leaveStartTime").value,
+        endDate: document.getElementById("leaveEndDate").value,
+        endTime: document.getElementById("leaveEndTime").value,
+        leaveHours: 0 // 若後端需要計算，請確認此處是否要補上計算邏輯
+      };
+
+      try {
+        const response = await fetch(API_ENDPOINT, {
+          method: "POST",
+          body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.message);
+        return result;
+      } catch (err) {
+        Swal.showValidationMessage(`請求失敗: ${err.message}`);
+        return false;
+      }
     }
   });
 
   if (formValues) {
-    Swal.fire({ icon: 'success', title: '送出成功！', timer: 1500, showConfirmButton: false });
-    loadAnnualInfo(); loadLeaveRecords();
+    Swal.fire({
+      icon: "success",
+      title: "送出成功",
+      timer: 1500,
+      showConfirmButton: false
+    });
+    // 更新清單
+    await loadAnnualInfo();
+    loadLeaveRecords();
   }
 };
 
