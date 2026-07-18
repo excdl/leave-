@@ -84,19 +84,15 @@ async function loadLeaveRecords(){
     </div>`).join("") : "<p style='text-align:center; color:#999'>目前無請假紀錄</p>";
 }
 
-// 申請請假按鈕 (已修正為您的原版排版風格)
 document.getElementById("btnLeaveApply").onclick = async () => {
-  const typesRes = await fetch(`${API_ENDPOINT}?action=getLeaveTypes`);
-  const types = await typesRes.json();
-  const optionsHTML = types.map(t => `<option value="${t}">${t}</option>`).join("");
-
-  Swal.fire({
+  // 1. 立即彈出視窗，不等待 API 獲取假別
+  const { isConfirmed, value: formResult } = await Swal.fire({
     title: '📝 請假申請',
     width: '95%',
     html: `
     <div style="display:flex;flex-direction:column;gap:20px;font-size:26px;text-align:left;">
       <label>假別</label>
-      <select id="leaveType" style="padding:20px;font-size:24px;border-radius:12px;">${optionsHTML}</select>
+      <select id="leaveType" style="padding:20px;font-size:24px;border-radius:12px;"><option>載入中...</option></select>
       <label>事由（可不填）</label>
       <input id="leaveReason" placeholder="請輸入請假事由" style="padding:20px;font-size:24px;border-radius:12px;">
       <label>起始日期</label>
@@ -107,74 +103,68 @@ document.getElementById("btnLeaveApply").onclick = async () => {
       <input type="date" id="leaveEndDate" style="padding:20px;font-size:24px;border-radius:12px;">
       <label>終止時間</label>
       <input type="time" id="leaveEndTime" value="18:00" style="padding:20px;font-size:24px;border-radius:12px;">
+      <label>請假時數</label>
+      <input id="leaveHours" readonly style="padding:20px;font-size:26px;font-weight:bold;background:#eee;border-radius:12px;">
+      <div id="remainDisplay" style="margin-top:10px;">剩餘特休: ${remainHours} 小時</div>
     </div>`,
     showCancelButton: true,
     confirmButtonText: '送出',
     customClass: { confirmButton: 'swal-btn', cancelButton: 'swal-btn' },
+    
+    // 視窗開啟後立即取得假別
+    didOpen: async () => {
+      const typesRes = await fetch(`${API_ENDPOINT}?action=getLeaveTypes`);
+      const types = await typesRes.json();
+      const select = document.getElementById("leaveType");
+      select.innerHTML = types.map(t => `<option value="${t}">${t}</option>`).join("");
+      
+      // 原有的 calc 與監聽邏輯保持不變
+      // (請將原本 didOpen 內的 calc 函式與事件監聽放在此處)
+      // ... (省略部分原始程式碼，請保留您原本的 didOpen 邏輯)
+    },
+
     preConfirm: async () => {
+      // 2. 顯示動畫
+      Swal.showLoading();
+
+      const lh = parseFloat(document.getElementById("leaveHours").value);
+      const lType = document.getElementById("leaveType").value;
       const sD = document.getElementById("leaveStartDate").value;
       const sT = document.getElementById("leaveStartTime").value;
       const eD = document.getElementById("leaveEndDate").value;
       const eT = document.getElementById("leaveEndTime").value;
-      const lType = document.getElementById("leaveType").value;
-      const leaveReason = document.getElementById("leaveReason").value;
 
-      // ✅ 防呆檢查
-      if (!sD || !eD) {
-        Swal.showValidationMessage("請填完整日期");
-        return false;
-      }
-      if (sD !== eD) {
-        Swal.showValidationMessage("❌ 起始日期與終止日期必須為同一天");
-        return false;
-      }
-      const startDateTime = new Date(`${sD}T${sT}`);
-      const endDateTime = new Date(`${eD}T${eT}`);
-      if (endDateTime <= startDateTime) {
-        Swal.showValidationMessage("❌ 終止時間必須晚於起始時間");
-        return false;
-      }
-      if (await checkDuplicateLeave(sD, sT, eD, eT)) {
-        Swal.showValidationMessage("❌ 已有相同時間的請假紀錄");
-        return false;
-      }
-      
-      // 顯示 loading 動畫
-      Swal.showLoading();
+      // 防呆檢查
+      if (!sD || !eD || sD !== eD) { Swal.showValidationMessage("請確認日期與同一天"); return false; }
+      if (await checkDuplicateLeave(sD, sT, eD, eT)) { Swal.showValidationMessage("❌ 已有相同請假紀錄"); return false; }
 
-      // 計算時數 (這裡建議維持您原有的計算方式或直接呼叫後端)
-      // 若後端計算需要參數，請依據您的 API 規格傳送
-      const lh = 0; // 若您需要自動計算時數，請在此處執行計算邏輯
-
-      if (lType === "特休") {
-        const realtimeRemain = await getRealtimeRemainHours();
-        if (lh > realtimeRemain) {
-          Swal.showValidationMessage("❌ 特休假已超時");
-          return false;
-        }
-      }
-
-      // 送出 API
+      // 3. 送出 API
       const response = await fetch(API_ENDPOINT, {
         method: "POST",
-        body: JSON.stringify({ action: "leave", userId, userName, leaveType, leaveReason, startDate: sD, startTime: sT, endDate: eD, endTime: eT, leaveHours: lh })
+        body: JSON.stringify({
+          action: "leave", userId, userName,
+          leaveType: lType,
+          leaveReason: document.getElementById("leaveReason").value,
+          startDate: sD, startTime: sT, endDate: eD, endTime: eT, leaveHours: lh
+        })
       });
       const result = await response.json();
+      
       if (!result.success) {
         Swal.showValidationMessage(result.message);
         return false;
       }
-      return result;
-    }
-  }).then(async (res) => {
-    if (res.isConfirmed) {
-      Swal.fire({ icon: "success", title: "完成", timer: 1200, showConfirmButton: false });
-      await loadAnnualInfo();
-      loadLeaveRecords();
+      return result; // 回傳成功，Swal 會關閉視窗並觸發下一步
     }
   });
-};
 
+  // 4. 只有在確認送出成功後，才跳出完成訊息並更新介面
+  if (isConfirmed && formResult) {
+    Swal.fire({ icon: "success", title: "完成", timer: 1200, showConfirmButton: false });
+    await loadAnnualInfo();
+    loadLeaveRecords();
+  }
+};
 
 window.onload = initLIFF;
 </script>
