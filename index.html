@@ -58,34 +58,14 @@ input, select, textarea {
 <script>
 const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbzXV2UEyRjdKXhkvicdWEAh84RHf51fobdJgvm4wXTJeXOL-q6Vldl3ZYJLGS8HuyBm/exec";
 let userId = "", userName = "", remainHours = 0;
+// 【優化】加入全域快取，避免重複請求
+let cachedRecords = [];
+let cachedEmpInfo = null;
 
 function normalizeTime(t) {
   if(!t) return "00:00";
   const parts = t.split(":").map(p => p.padStart(2, "0"));
   return parts[0] + ":" + parts[1];
-}
-
-async function getRealtimeRemainHours() {
-  const leaveRes = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`);
-  const records = await leaveRes.json();
-  let usedSigned = 0, usedPending = 0;
-  records.forEach(r => {
-    if(r.leaveType === "特休") {
-      if(r.signStatus === "已簽核") usedSigned += parseFloat(r.leaveHours || 0);
-      else usedPending += parseFloat(r.leaveHours || 0);
-    }
-  });
-  const empRes = await fetch(`${API_ENDPOINT}?action=getUserInfo&userId=${userId}`);
-  const empInfo = await empRes.json();
-  return (empInfo.total || 0) - usedSigned - usedPending;
-}
-
-async function checkDuplicateLeave(sD, sT, eD, eT) {
-  const res = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`);
-  const records = await res.json();
-  const newStart = `${sD} ${normalizeTime(sT)}`;
-  const newEnd = `${eD} ${normalizeTime(eT)}`;
-  return records.some(r => `${r.startDate} ${normalizeTime(r.startTime)}` === newStart && `${r.endDate} ${normalizeTime(r.endTime)}` === newEnd);
 }
 
 async function initLIFF(){
@@ -95,49 +75,41 @@ async function initLIFF(){
     const profile = await liff.getProfile();
     userId = profile.userId; userName = profile.displayName;
     document.getElementById("userInfo").textContent = `${userName} 您好`;
-    await loadAnnualInfo();
-    loadLeaveRecords();
+    
+    // 【優化】頁面啟動時一次並行抓取所有資料
+    const [empRes, leaveRes] = await Promise.all([
+      fetch(`${API_ENDPOINT}?action=getUserInfo&userId=${userId}`).then(r => r.json()),
+      fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`).then(r => r.json())
+    ]);
+    cachedEmpInfo = empRes;
+    cachedRecords = leaveRes;
+    
+    updateAnnualInfoUI();
+    renderLeaveRecords();
   }catch(e){ document.getElementById("userInfo").textContent = "請在 LINE 中開啟"; }
 }
 
-async function loadAnnualInfo(){
-  const [empRes, leaveRes] = await Promise.all([
-    fetch(`${API_ENDPOINT}?action=getUserInfo&userId=${userId}`),
-    fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`)
-  ]);
-  const empInfo = await empRes.json();
-  const records = await leaveRes.json();
-  let usedSigned = records.filter(r => r.leaveType==="特休" && r.signStatus==="已簽核")
-                          .reduce((sum, r) => sum + parseFloat(r.leaveHours || 0), 0);
-  remainHours = (empInfo.total || 0) - usedSigned;
+function updateAnnualInfoUI(){
+  let usedSigned = cachedRecords.filter(r => r.leaveType==="特休" && r.signStatus==="已簽核")
+                                .reduce((sum, r) => sum + parseFloat(r.leaveHours || 0), 0);
+  remainHours = (cachedEmpInfo.total || 0) - usedSigned;
   document.getElementById("annualInfo").innerHTML = `剩餘特休：<b style="color:blue">${remainHours}</b> 小時`;
 }
 
-async function loadLeaveRecords() {
+function renderLeaveRecords() {
   const container = document.getElementById("leaveRecordList");
-  try {
-    const res = await fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`);
-    const data = await res.json();
-    
-    // ✅ 加入排序邏輯：日期越晚的越靠前
-    data.sort((a, b) => {
-      const dateA = new Date(`${a.startDate} ${a.startTime}`);
-      const dateB = new Date(`${b.startDate} ${b.startTime}`);
-      return dateB - dateA; // 由大到小排序
-    });
-
-    container.innerHTML = data.length ? data.map(r => `
-      <div class="record-item">
-        <div>
-          <div style="font-weight:bold">${r.leaveType} (${r.leaveHours}h)</div>
-          <div style="font-size:12px; color:#888">${r.startDate} ${r.startTime} ~ ${r.endDate} ${r.endTime}</div>
-        </div>
-        <div class="status-badge badge-${r.signStatus}">${r.signStatus}</div>
-      </div>`).join("") : "<p style='text-align:center; color:#999'>目前無請假紀錄</p>";
-  } catch(e) { 
-    container.innerHTML = "<p style='text-align:center; color:red'>讀取失敗</p>"; 
-  }
+  const data = [...cachedRecords].sort((a, b) => new Date(`${b.startDate} ${b.startTime}`) - new Date(`${a.startDate} ${a.startTime}`));
+  
+  container.innerHTML = data.length ? data.map(r => `
+    <div class="record-item">
+      <div>
+        <div style="font-weight:bold">${r.leaveType} (${r.leaveHours}h)</div>
+        <div style="font-size:12px; color:#888">${r.startDate} ${r.startTime} ~ ${r.endDate} ${r.endTime}</div>
+      </div>
+      <div class="status-badge badge-${r.signStatus}">${r.signStatus}</div>
+    </div>`).join("") : "<p style='text-align:center; color:#999'>目前無請假紀錄</p>";
 }
+
 document.getElementById("btnLeaveApply").onclick = async () => {
   const typesRes = await fetch(`${API_ENDPOINT}?action=getLeaveTypes`);
   const types = await typesRes.json();
@@ -171,9 +143,10 @@ document.getElementById("btnLeaveApply").onclick = async () => {
         const result = await res.json();
         let hours = Number(result.leaveHours || 0);
         lH.value = hours.toFixed(2);
+        
+        // 【優化】直接使用全域快取計算剩餘時數，不再發送額外網路請求
         if(lType.value === "特休") {
-          const rem = await getRealtimeRemainHours();
-          rDisp.textContent = `剩餘特休: ${Math.max(0, rem - hours).toFixed(2)} 小時`;
+          rDisp.textContent = `剩餘特休: ${Math.max(0, remainHours - hours).toFixed(2)} 小時`;
         }
       }
       sD.addEventListener("change", () => { eD.value = sD.value; calc(); });
@@ -185,10 +158,13 @@ document.getElementById("btnLeaveApply").onclick = async () => {
       const eD = document.getElementById("leaveEndDate").value, eT = document.getElementById("leaveEndTime").value;
       const lh = parseFloat(document.getElementById("leaveHours").value);
       
+      // 【優化】直接比對快取陣列，瞬間完成重複檢查
+      const isDup = cachedRecords.some(r => `${r.startDate} ${normalizeTime(r.startTime)}` === `${sD} ${normalizeTime(sT)}` && `${r.endDate} ${normalizeTime(r.endTime)}` === `${eD} ${normalizeTime(eT)}`);
+      
       if(sD !== eD) { Swal.showValidationMessage("起始與終止日期必須為同一天"); return false; }
       if(new Date(`${eD}T${eT}`) <= new Date(`${sD}T${sT}`)) { Swal.showValidationMessage("終止時間須晚於開始時間"); return false; }
-      if(await checkDuplicateLeave(sD, sT, eD, eT)) { Swal.showValidationMessage("已有相同時間的請假紀錄"); return false; }
-      if(document.getElementById("leaveType").value === "特休" && lh > await getRealtimeRemainHours()) { Swal.showValidationMessage("特休時數不足"); return false; }
+      if(isDup) { Swal.showValidationMessage("已有相同時間的請假紀錄"); return false; }
+      if(document.getElementById("leaveType").value === "特休" && lh > remainHours) { Swal.showValidationMessage("特休時數不足"); return false; }
 
       const response = await fetch(API_ENDPOINT, {
         method: "POST",
@@ -202,7 +178,8 @@ document.getElementById("btnLeaveApply").onclick = async () => {
   }).then((res) => {
     if(res.isConfirmed) {
       Swal.fire({ icon: "success", title: "申請成功", timer: 1200, showConfirmButton: false });
-      loadAnnualInfo(); loadLeaveRecords();
+      // 成功後建議重新載入資料以更新快取
+      initLIFF();
     }
   });
 };
