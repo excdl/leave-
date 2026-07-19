@@ -139,64 +139,63 @@ document.getElementById("btnLeaveApply").onclick = async () => {
   Swal.fire({
     title: '📝 請假申請',
     width: '100%',
-    html: `... (保持您原有的 HTML 結構) ...`,
+    html: `
+      <div style="display:flex;flex-direction:column;gap:15px;text-align:left;">
+        <label>假別</label><select id="leaveType">${optionsHTML}</select>
+        <label>事由</label><input id="leaveReason" placeholder="請輸入事由">
+        <label>開始日期</label><input type="date" id="leaveStartDate">
+        <label>開始時間</label><input type="time" id="leaveStartTime" value="09:00">
+        <label>結束日期</label><input type="date" id="leaveEndDate">
+        <label>結束時間</label><input type="time" id="leaveEndTime" value="18:00">
+        <label>請假時數</label><input id="leaveHours" readonly style="background:#eee;">
+        <div id="remainDisplay">剩餘特休: ${remainHours} 小時</div>
+      </div>`,
     showCancelButton: true,
     confirmButtonText: '送出',
     didOpen: () => {
-      // 2. 加入簡單的 debounce 機制
-      let timer;
+      const sD = document.getElementById("leaveStartDate"), sT = document.getElementById("leaveStartTime"),
+            eD = document.getElementById("leaveEndDate"), eT = document.getElementById("leaveEndTime"),
+            lH = document.getElementById("leaveHours"), lType = document.getElementById("leaveType"),
+            rDisp = document.getElementById("remainDisplay");
+
       async function calc() {
-        const sD = document.getElementById("leaveStartDate").value;
-        const sT = document.getElementById("leaveStartTime").value;
-        const eD = document.getElementById("leaveEndDate").value;
-        const eT = document.getElementById("leaveEndTime").value;
-        
-        if(!sD || !sT || !eD || !eT) return;
-        
-        // 觸發請求前顯示計算中
-        document.getElementById("leaveHours").value = "計算中...";
-        
-        const res = await fetch(`${API_ENDPOINT}?action=calculateLeaveHours&userId=${userId}&startDate=${sD}&startTime=${sT}&endDate=${eD}&endTime=${eT}`);
+        if(!sD.value || !sT.value || !eD.value || !eT.value) return;
+        const res = await fetch(`${API_ENDPOINT}?action=calculateLeaveHours&userId=${userId}&startDate=${sD.value}&startTime=${sT.value}&endDate=${eD.value}&endTime=${eT.value}`);
         const result = await res.json();
-        const hours = Number(result.leaveHours || 0);
-        document.getElementById("leaveHours").value = hours.toFixed(2);
-        
-        if(document.getElementById("leaveType").value === "特休") {
-          document.getElementById("remainDisplay").textContent = `剩餘特休: ${Math.max(0, remainHours - hours).toFixed(2)} 小時`;
+        let hours = Number(result.leaveHours || 0);
+        lH.value = hours.toFixed(2);
+        if(lType.value === "特休") {
+          const rem = await getRealtimeRemainHours();
+          rDisp.textContent = `剩餘特休: ${Math.max(0, rem - hours).toFixed(2)} 小時`;
         }
       }
-
-      const debouncedCalc = () => {
-        clearTimeout(timer);
-        timer = setTimeout(calc, 300); // 延遲 300ms 執行
-      };
-
-      const sD = document.getElementById("leaveStartDate");
-      sD.addEventListener("change", () => { document.getElementById("leaveEndDate").value = sD.value; debouncedCalc(); });
-      [document.getElementById("leaveStartTime"), document.getElementById("leaveEndDate"), 
-       document.getElementById("leaveEndTime"), document.getElementById("leaveType")]
-       .forEach(el => el.addEventListener("change", debouncedCalc));
+      sD.addEventListener("change", () => { eD.value = sD.value; calc(); });
+      [sD, sT, eD, eT, lType].forEach(el => el.addEventListener("change", calc));
     },
     preConfirm: async () => {
-      // ... (保持您的 preConfirm 邏輯)
+      Swal.showLoading();
+      const sD = document.getElementById("leaveStartDate").value, sT = document.getElementById("leaveStartTime").value;
+      const eD = document.getElementById("leaveEndDate").value, eT = document.getElementById("leaveEndTime").value;
+      const lh = parseFloat(document.getElementById("leaveHours").value);
+      
+      if(sD !== eD) { Swal.showValidationMessage("起始與終止日期必須為同一天"); return false; }
+      if(new Date(`${eD}T${eT}`) <= new Date(`${sD}T${sT}`)) { Swal.showValidationMessage("終止時間須晚於開始時間"); return false; }
+      if(await checkDuplicateLeave(sD, sT, eD, eT)) { Swal.showValidationMessage("已有相同時間的請假紀錄"); return false; }
+      if(document.getElementById("leaveType").value === "特休" && lh > await getRealtimeRemainHours()) { Swal.showValidationMessage("特休時數不足"); return false; }
+
+      const response = await fetch(API_ENDPOINT, {
+        method: "POST",
+        body: JSON.stringify({ action: "leave", userId, userName, leaveType: document.getElementById("leaveType").value, 
+                               leaveReason: document.getElementById("leaveReason").value, startDate: sD, startTime: sT, endDate: eD, endTime: eT, leaveHours: lh })
+      });
+      const result = await response.json();
+      if(!result.success) { Swal.showValidationMessage(result.message); return false; }
+      return result;
     }
   }).then((res) => {
     if(res.isConfirmed) {
       Swal.fire({ icon: "success", title: "申請成功", timer: 1200, showConfirmButton: false });
-      
-      // 3. 【關鍵優化】直接更新本地快取，不必等待重新載入
-      const newRecord = { 
-          leaveType: document.getElementById("leaveType").value,
-          leaveHours: document.getElementById("leaveHours").value,
-          startDate: document.getElementById("leaveStartDate").value,
-          startTime: document.getElementById("leaveStartTime").value,
-          endDate: document.getElementById("leaveEndDate").value,
-          endTime: document.getElementById("leaveEndTime").value,
-          signStatus: "待簽核" 
-      };
-      cachedRecords.unshift(newRecord); // 加入到陣列最前面
-      renderLeaveRecords(); // 重新渲染畫面
-      updateAnnualInfoUI(); // 更新剩餘時數 UI
+      loadAnnualInfo(); loadLeaveRecords();
     }
   });
 };
