@@ -139,6 +139,7 @@ document.getElementById("btnLeaveApply").onclick = async () => {
       </div>`,
     showCancelButton: true,
     confirmButtonText: '送出',
+    cancelButtonText: '取消', // 修改處：將取消按鈕文字改為中文
     didOpen: () => {
       const sD = document.getElementById("leaveStartDate"), sT = document.getElementById("leaveStartTime"),
             eD = document.getElementById("leaveEndDate"), eT = document.getElementById("leaveEndTime"),
