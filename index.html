@@ -56,7 +56,7 @@ input, select, textarea {
 <div id="leaveRecordList"></div>
 
 <script>
-const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbzXV2UEyRjdKXhkvicdWEAh84RHf51fobdJgvm4wXTJeXOL-q6Vldl3ZYJLGS8HuyBm/exec";
+const API_ENDPOINT = "https://script.google.com/macros/s/AKfycby88wtfB9j0Efoi_FGSLEmrKg9OWjHIWQCdlLrNDdDuszvhaV1qba0FfvQNS-OYgxpZ6A/exec";
 let userId = "", userName = "", remainHours = 0;
 // 【優化】加入全域快取，避免重複請求
 let cachedRecords = [];
@@ -71,7 +71,7 @@ function normalizeTime(t) {
 
 async function initLIFF(){
   try{
-    await liff.init({ liffId:"2009444587-t79pfL2A" });
+    await liff.init({ liffId:"2010795326-4rJuEjSl" });
     if(!liff.isLoggedIn()) liff.login();
     const profile = await liff.getProfile();
     userId = profile.userId; userName = profile.displayName;
