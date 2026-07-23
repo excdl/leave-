@@ -58,10 +58,11 @@ input, select, textarea {
 <script>
 const API_ENDPOINT = "https://script.google.com/macros/s/AKfycby88wtfB9j0Efoi_FGSLEmrKg9OWjHIWQCdlLrNDdDuszvhaV1qba0FfvQNS-OYgxpZ6A/exec";
 let userId = "", userName = "", remainHours = 0;
-// 【優化】加入全域快取，避免重複請求
-let cachedRecords = [];
-let cachedEmpInfo = null;
-let cachedLeaveTypes = []; // 新增：假別快取
+
+// 優先從 localStorage 讀取快取，實現秒開
+let cachedRecords = JSON.parse(localStorage.getItem('cachedRecords') || '[]');
+let cachedEmpInfo = JSON.parse(localStorage.getItem('cachedEmpInfo') || 'null');
+let cachedLeaveTypes = JSON.parse(localStorage.getItem('cachedLeaveTypes') || '[]');
 
 function normalizeTime(t) {
   if(!t) return "00:00";
@@ -74,25 +75,39 @@ async function initLIFF(){
     await liff.init({ liffId:"2010795326-4rJuEjSl" });
     if(!liff.isLoggedIn()) liff.login();
     const profile = await liff.getProfile();
-    userId = profile.userId; userName = profile.displayName;
+    userId = profile.userId; 
+    userName = profile.displayName;
     document.getElementById("userInfo").textContent = `${userName} 您好`;
     
-    // 【優化】頁面啟動時一次並行抓取所有資料（包含員工資訊、請假紀錄、假別清單）
+    // 如果本地有快取，先畫出畫面，提升體感速度
+    if(cachedEmpInfo) updateAnnualInfoUI();
+    if(cachedRecords.length > 0) renderLeaveRecords();
+
+    // 背景非同步抓取最新資料，抓完後靜默更新畫面與 localStorage
     const [empRes, leaveRes, typesRes] = await Promise.all([
       fetch(`${API_ENDPOINT}?action=getUserInfo&userId=${userId}`).then(r => r.json()),
       fetch(`${API_ENDPOINT}?action=getLeaveRecords&userId=${userId}`).then(r => r.json()),
       fetch(`${API_ENDPOINT}?action=getLeaveTypes`).then(r => r.json())
     ]);
+
     cachedEmpInfo = empRes;
     cachedRecords = leaveRes;
-    cachedLeaveTypes = typesRes; // 儲存假別快取
+    cachedLeaveTypes = typesRes;
+
+    // 寫入 localStorage 供下次秒開使用
+    localStorage.setItem('cachedEmpInfo', JSON.stringify(empRes));
+    localStorage.setItem('cachedRecords', JSON.stringify(leaveRes));
+    localStorage.setItem('cachedLeaveTypes', JSON.stringify(typesRes));
     
     updateAnnualInfoUI();
     renderLeaveRecords();
-  }catch(e){ document.getElementById("userInfo").textContent = "請在 LINE 中開啟"; }
+  }catch(e){ 
+    document.getElementById("userInfo").textContent = "請在 LINE 中開啟"; 
+  }
 }
 
 function updateAnnualInfoUI(){
+  if(!cachedEmpInfo) return;
   let usedSigned = cachedRecords.filter(r => r.leaveType==="特休" && r.signStatus==="已簽核")
                                 .reduce((sum, r) => sum + parseFloat(r.leaveHours || 0), 0);
   remainHours = (cachedEmpInfo.total || 0) - usedSigned;
@@ -114,12 +129,12 @@ function renderLeaveRecords() {
 }
 
 document.getElementById("btnLeaveApply").onclick = async () => {
-  // 【優化】直接使用快取假別，若快取為空則進行後備請求，實現彈窗秒開
   let types = cachedLeaveTypes;
   if (!types || types.length === 0) {
     const typesRes = await fetch(`${API_ENDPOINT}?action=getLeaveTypes`);
     types = await typesRes.json();
     cachedLeaveTypes = types;
+    localStorage.setItem('cachedLeaveTypes', JSON.stringify(types));
   }
   const optionsHTML = types.map(t => `<option value="${t}">${t}</option>`).join("");
   
@@ -139,7 +154,7 @@ document.getElementById("btnLeaveApply").onclick = async () => {
       </div>`,
     showCancelButton: true,
     confirmButtonText: '送出',
-    cancelButtonText: '取消', // 修改處：將取消按鈕文字改為中文
+    cancelButtonText: '取消',
     didOpen: () => {
       const sD = document.getElementById("leaveStartDate"), sT = document.getElementById("leaveStartTime"),
             eD = document.getElementById("leaveEndDate"), eT = document.getElementById("leaveEndTime"),
@@ -189,7 +204,9 @@ document.getElementById("btnLeaveApply").onclick = async () => {
     }
   });
 };
+
 window.onload = initLIFF;
+
 </script>
 </body>
 </html>
